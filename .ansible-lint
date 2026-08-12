@@ -1,0 +1,11 @@
+---
+offline: true
+
+warn_list:
+  # Multi-line Jinja in >- blocks adds whitespace at fold points;
+  # keeping multi-line format for readability over single-line
+  - jinja[spacing]
+
+skip_list:
+  # Internal role vars use _ prefix by design to avoid cross-role pollution
+  - var-naming[no-role-prefix]

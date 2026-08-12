@@ -1,0 +1,7 @@
+collections/ansible_collections/
+reports/*.html
+reports/*.json
+ansible-navigator.log
+*.retry
+.env
+vault_password

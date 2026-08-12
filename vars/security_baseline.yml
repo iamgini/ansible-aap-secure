@@ -1,0 +1,111 @@
+---
+# AAP Secure 2.7 - Security Baseline (Gold Standard)
+# These are the recommended hardened values from the Red Hat AAP Secure guide.
+# Override per-customer in customer_overrides.yml.
+
+# --- Gateway Settings (API) ---
+gateway_baseline:
+  SESSION_COOKIE_SECURE: true
+  SESSION_COOKIE_AGE: 1800
+  SESSIONS_PER_USER: 1
+  CSRF_TRUSTED_ORIGINS: []
+  REMOTE_HOST_HEADERS:
+    - REMOTE_ADDR
+    - REMOTE_HOST
+  PROXY_IP_ALLOWED_LIST: []
+  ALLOW_OAUTH2_FOR_EXTERNAL_USERS: false
+
+# --- Authentication (API) ---
+authentication_baseline:
+  local_authenticator_enabled: false
+  require_external_auth: true
+  ldap_use_ldaps: true
+  saml_require_signed: true
+  oidc_require_https: true
+
+# --- RBAC (API) ---
+rbac_baseline:
+  max_superusers: 2
+  org_admin_can_manage_users: true
+  all_users_visible_to_org_admins: true
+  activity_stream_enabled: true
+  activity_stream_inventory_sync: true
+
+# --- Credentials (API) ---
+credentials_baseline:
+  require_external_vault: true
+  supported_vault_types:
+    - hashicorp_vault
+    - cyberark_ccp
+    - cyberark_conjur
+    - aws_secrets_manager
+    - azure_key_vault
+  no_plaintext_passwords: true
+
+# --- Logging (API) ---
+logging_baseline:
+  log_aggregator_enabled: true
+  log_aggregator_type: splunk
+  log_aggregator_protocol: https
+  log_aggregator_tcp_timeout: 5
+  log_aggregator_https_verify: true
+  enable_external_logging: true
+  log_level_threshold: INFO
+
+# --- Controller Settings (API) ---
+controller_baseline:
+  DEFAULT_JOB_TIMEOUT: 3600
+  AWX_TASK_ENV:
+    GIT_SSL_NO_VERIFY: "False"
+  INSIGHTS_TRACKING_STATE: true
+
+# --- Host Hardening (SSH) ---
+host_hardening_baseline:
+  fapolicyd:
+    installed: true
+    permissive: 1
+  user_namespaces:
+    max_user_namespaces: 65535
+  noexec_filesystems:
+    - /tmp
+    - /var/tmp
+  log_permissions:
+    - path: /var/log/nginx
+      mode: "0770"
+      owner: nginx
+      group: root
+    - path: /var/log/tower
+      mode: "0770"
+      owner: awx
+      group: awx
+    - path: /var/log/supervisor
+      mode: "0770"
+      owner: root
+      group: root
+  session_timeout:
+    StopIdleSessionSec: 7200
+
+# --- TLS/HSTS (SSH + API) ---
+tls_baseline:
+  postgresql_disable_tls: false
+  pg_sslmode: verify-full
+  nginx_disable_https: false
+  nginx_disable_hsts: false
+  cert_expiry_warning_days: 30
+
+# --- Managed Nodes (SSH) ---
+managed_nodes_baseline:
+  service_account:
+    name: ansible
+    system_account: true
+    shell: /bin/bash
+  sudoers:
+    file: /etc/sudoers.d/ansible
+    mode: "0440"
+    content: "ansible ALL=(ALL) NOPASSWD: ALL"
+  sshd:
+    config_file: /etc/ssh/sshd_config.d/60-ansible.conf
+    password_auth: false
+  pam_access:
+    enabled: true
+    config_file: /etc/security/access.conf

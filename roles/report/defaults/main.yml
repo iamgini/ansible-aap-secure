@@ -1,0 +1,5 @@
+---
+aap_secure_report_format: html
+aap_secure_report_dir: "{{ playbook_dir }}/reports"
+aap_secure_report_filename: "compliance_report_{{ lookup('pipe', 'date +%Y-%m-%d') }}"
+aap_secure_customer_name: "Customer"

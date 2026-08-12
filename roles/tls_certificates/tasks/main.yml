@@ -1,0 +1,123 @@
+---
+# tls_certificates - TLS/HSTS, certificate validation, PostgreSQL SSL
+
+- name: Merge TLS baseline with customer overrides
+  ansible.builtin.set_fact:
+    _tls: "{{ tls_baseline | combine(tls_overrides | default({}), recursive=true) }}"
+
+# --- NGINX HTTPS check ---
+- name: Check NGINX HTTPS configuration
+  ansible.builtin.command:
+    cmd: grep -r 'listen.*443' /etc/nginx/
+  register: _nginx_https
+  changed_when: false
+  failed_when: false
+
+# --- HSTS check ---
+- name: Check NGINX HSTS headers
+  ansible.builtin.command:
+    cmd: grep -r 'Strict-Transport-Security' /etc/nginx/
+  register: _nginx_hsts
+  changed_when: false
+  failed_when: false
+
+# --- PostgreSQL SSL mode ---
+- name: Check PostgreSQL client SSL mode
+  ansible.builtin.command:
+    cmd: grep -r 'sslmode' /etc/ansible-automation-platform/ /var/lib/awx/ /etc/tower/
+  register: _pg_sslmode
+  changed_when: false
+  failed_when: false
+
+# --- Certificate expiry ---
+- name: Find TLS certificates
+  ansible.builtin.find:
+    paths:
+      - /etc/ansible-automation-platform/
+      - /etc/tower/
+      - /etc/pki/tls/certs/
+    patterns: "*.crt,*.pem"
+    recurse: true
+  register: _cert_files
+  failed_when: false
+
+- name: Check certificate expiry dates
+  ansible.builtin.command:
+    cmd: "openssl x509 -enddate -noout -in {{ item.path }}"
+  register: _cert_expiry
+  loop: "{{ _cert_files.files | default([]) }}"
+  changed_when: false
+  failed_when: false
+  when: _cert_files.files | default([]) | length > 0
+
+- name: Check certificate expiry (days remaining)
+  ansible.builtin.command:
+    cmd: "openssl x509 -checkend {{ (_tls.cert_expiry_warning_days | int) * 86400 }} -in {{ item.path }}"
+  register: _cert_valid
+  loop: "{{ _cert_files.files | default([]) }}"
+  changed_when: false
+  failed_when: false
+  when: _cert_files.files | default([]) | length > 0
+
+# --- Build results ---
+- name: Evaluate TLS checks
+  ansible.builtin.set_fact:
+    aap_secure_host_results: "{{ aap_secure_host_results | default([]) + _tls_results }}"
+  vars:
+    _has_https: "{{ _nginx_https.rc | default(1) == 0 }}"
+    _has_hsts: "{{ _nginx_hsts.rc | default(1) == 0 }}"
+    _pg_ssl_output: "{{ _pg_sslmode.stdout | default('') }}"
+    _has_verify_full: "{{ 'verify-full' in _pg_ssl_output }}"
+    _tls_results:
+      - name: HTTPS Enabled
+        domain: TLS/Certificates
+        host: "{{ inventory_hostname }}"
+        status: "{{ 'PASS' if _has_https else 'FAIL' }}"
+        current_value: "{{ 'HTTPS configured in NGINX' if _has_https else 'No HTTPS listener found' }}"
+        recommended_value: "Enabled on all components"
+        description: "NGINX must listen on port 443 with SSL"
+        remediation: "Ensure *_nginx_disable_https is false in installation inventory"
+        reference: "AAP Secure 2.7 - Security-relevant variables in the installation inventory"
+
+      - name: HSTS Headers
+        domain: TLS/Certificates
+        host: "{{ inventory_hostname }}"
+        status: "{{ 'PASS' if _has_hsts else 'WARNING' }}"
+        current_value: "{{ 'HSTS headers present' if _has_hsts else 'No HSTS headers found' }}"
+        recommended_value: "Enabled on all components"
+        description: "HTTP Strict Transport Security prevents downgrade attacks"
+        remediation: "Ensure *_nginx_disable_hsts is false in installation inventory"
+        reference: "AAP Secure 2.7 - Security-relevant variables in the installation inventory"
+
+      - name: PostgreSQL TLS
+        domain: TLS/Certificates
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if _has_verify_full -%}PASS
+          {%- elif 'sslmode' in _pg_ssl_output -%}WARNING
+          {%- else -%}WARNING{%- endif -%}
+        current_value: "{{ _pg_ssl_output | regex_search('sslmode=([a-z-]+)', '\\1') | default(['Not found']) | first }}"
+        recommended_value: "{{ _tls.pg_sslmode }}"
+        description: "PostgreSQL connections must use verify-full SSL mode"
+        remediation: "Set *_pg_sslmode to verify-full in installation inventory"
+        reference: "AAP Secure 2.7 - Security-relevant variables in the installation inventory"
+
+- name: Evaluate certificate expiry
+  ansible.builtin.set_fact:
+    aap_secure_host_results: "{{ aap_secure_host_results | default([]) + [_cert_result] }}"
+  vars:
+    _expires: "{{ item.stdout | default('') | regex_search('notAfter=(.+)', '\\1') | default(['Unknown']) | first }}"
+    _cert_result:
+      name: "Certificate expiry - {{ item.item.path | basename }}"
+      domain: TLS/Certificates
+      host: "{{ inventory_hostname }}"
+      status: "{{ 'PASS' if item.rc == 0 else 'FAIL' }}"
+      current_value: "{{ _expires }}"
+      recommended_value: "> {{ _tls.cert_expiry_warning_days }} days remaining"
+      description: "Certificate {{ item.item.path | basename }} expiry check"
+      remediation: "Renew certificate before expiry"
+      reference: "AAP Secure 2.7 - Renew and change SSL/TLS certificates"
+  loop: "{{ _cert_expiry.results | default([]) }}"
+  when:
+    - _cert_expiry is defined
+    - _cert_expiry.results is defined

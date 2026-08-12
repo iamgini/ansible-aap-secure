@@ -1,0 +1,23 @@
+---
+# Scan Policy - controls which checks run and the operating mode.
+
+# Mode: scan (read-only audit) or remediate (apply fixes)
+aap_secure_mode: scan
+
+# Scope: all | api | hosts
+aap_secure_scope: all
+
+# Domain toggles - set to false to skip specific domains
+aap_secure_check_gateway: true
+aap_secure_check_auth: true
+aap_secure_check_rbac: true
+aap_secure_check_credentials: true
+aap_secure_check_logging: true
+aap_secure_check_host_hardening: true
+aap_secure_check_tls: true
+aap_secure_check_managed_nodes: true
+
+# Report settings
+aap_secure_report_format: html
+aap_secure_report_dir: "{{ playbook_dir }}/reports"
+aap_secure_report_filename: "compliance_report_{{ lookup('pipe', 'date +%Y-%m-%d') }}"

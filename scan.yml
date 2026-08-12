@@ -1,0 +1,118 @@
+---
+# AAP Secure 2.7 - Security Scan & Remediation
+# Usage:
+#   Scan:      ansible-playbook scan.yml
+#   Remediate: ansible-playbook scan.yml -e aap_secure_mode=remediate
+#   API only:  ansible-playbook scan.yml -e aap_secure_scope=api
+#   Hosts only: ansible-playbook scan.yml -e aap_secure_scope=hosts
+
+# --- Play 1: API-level security checks (Gateway, Auth, RBAC, Credentials, Logging) ---
+- name: AAP Security - API Checks
+  hosts: aap_gateway
+  gather_facts: false
+  vars_files:
+    - vars/security_baseline.yml
+    - vars/customer_overrides.yml
+    - vars/scan_policy.yml
+  tasks:
+    - name: Initialize API results collector
+      ansible.builtin.set_fact:
+        aap_secure_api_results: []
+
+    - name: Run gateway security checks
+      ansible.builtin.include_role:
+        name: gateway_security
+      when:
+        - aap_secure_scope in ['all', 'api']
+        - aap_secure_check_gateway | default(true)
+
+    - name: Run authentication checks
+      ansible.builtin.include_role:
+        name: authentication
+      when:
+        - aap_secure_scope in ['all', 'api']
+        - aap_secure_check_auth | default(true)
+
+    - name: Run RBAC checks
+      ansible.builtin.include_role:
+        name: rbac
+      when:
+        - aap_secure_scope in ['all', 'api']
+        - aap_secure_check_rbac | default(true)
+
+    - name: Run credential hygiene checks
+      ansible.builtin.include_role:
+        name: credentials
+      when:
+        - aap_secure_scope in ['all', 'api']
+        - aap_secure_check_credentials | default(true)
+
+    - name: Run logging checks
+      ansible.builtin.include_role:
+        name: logging
+      when:
+        - aap_secure_scope in ['all', 'api']
+        - aap_secure_check_logging | default(true)
+
+# --- Play 2: Host-level security checks (fapolicyd, namespaces, noexec, TLS) ---
+- name: AAP Security - Host Checks
+  hosts: aap_hosts
+  become: true
+  gather_facts: true
+  vars_files:
+    - vars/security_baseline.yml
+    - vars/customer_overrides.yml
+    - vars/scan_policy.yml
+  tasks:
+    - name: Initialize host results collector
+      ansible.builtin.set_fact:
+        aap_secure_host_results: []
+
+    - name: Run host hardening checks
+      ansible.builtin.include_role:
+        name: host_hardening
+      when:
+        - aap_secure_scope in ['all', 'hosts']
+        - aap_secure_check_host_hardening | default(true)
+
+    - name: Run TLS/certificate checks
+      ansible.builtin.include_role:
+        name: tls_certificates
+      when:
+        - aap_secure_scope in ['all', 'hosts']
+        - aap_secure_check_tls | default(true)
+
+# --- Play 3: Managed node security checks ---
+- name: AAP Security - Managed Node Checks
+  hosts: managed_nodes
+  become: true
+  gather_facts: true
+  vars_files:
+    - vars/security_baseline.yml
+    - vars/customer_overrides.yml
+    - vars/scan_policy.yml
+  tasks:
+    - name: Initialize managed node results collector
+      ansible.builtin.set_fact:
+        aap_secure_managed_results: []
+
+    - name: Run managed node checks
+      ansible.builtin.include_role:
+        name: managed_nodes
+      when:
+        - aap_secure_scope in ['all', 'hosts']
+        - aap_secure_check_managed_nodes | default(true)
+
+# --- Play 4: Generate compliance report ---
+- name: AAP Security - Generate Report
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars/security_baseline.yml
+    - vars/customer_overrides.yml
+    - vars/scan_policy.yml
+  tasks:
+    - name: Generate compliance report
+      ansible.builtin.include_role:
+        name: report

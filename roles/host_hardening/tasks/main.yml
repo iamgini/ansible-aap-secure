@@ -1,0 +1,214 @@
+---
+# host_hardening - fapolicyd, user namespaces, noexec, log permissions, session timeout
+
+- name: Merge host hardening baseline with customer overrides
+  ansible.builtin.set_fact:
+    _hh: "{{ host_hardening_baseline | combine(host_hardening_overrides | default({}), recursive=true) }}"
+
+# --- fapolicyd ---
+- name: Check if fapolicyd is installed
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Check fapolicyd config
+  ansible.builtin.slurp:
+    src: /etc/fapolicyd/fapolicyd.conf
+  register: _fapolicyd_conf
+  failed_when: false
+
+- name: Parse fapolicyd permissive setting
+  ansible.builtin.set_fact:
+    _fapolicyd_installed: "{{ 'fapolicyd' in ansible_facts.packages }}"
+    _fapolicyd_permissive: >-
+      {{ (_fapolicyd_conf.content | default('') | b64decode | regex_search('permissive\s*=\s*(\d+)', '\1') | default(['0'])) | first }}
+  when: _fapolicyd_conf is not failed
+
+- name: Set fapolicyd defaults when not installed
+  ansible.builtin.set_fact:
+    _fapolicyd_installed: false
+    _fapolicyd_permissive: "N/A"
+  when: _fapolicyd_conf is failed
+
+# --- User namespaces ---
+- name: Check user.max_user_namespaces
+  ansible.builtin.command:
+    cmd: sysctl -n user.max_user_namespaces
+  register: _user_ns
+  changed_when: false
+  failed_when: false
+
+# --- noexec mounts ---
+- name: Get mount options for /tmp
+  ansible.builtin.command:
+    cmd: findmnt -n -o OPTIONS /tmp
+  register: _tmp_mount
+  changed_when: false
+  failed_when: false
+
+- name: Get mount options for /var/tmp
+  ansible.builtin.command:
+    cmd: findmnt -n -o OPTIONS /var/tmp
+  register: _vartmp_mount
+  changed_when: false
+  failed_when: false
+
+# --- Log permissions ---
+- name: Check log directory permissions
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  register: _log_dirs
+  loop: "{{ _hh.log_permissions }}"
+  failed_when: false
+
+# --- Session timeout ---
+- name: Check logind.conf for StopIdleSessionSec
+  ansible.builtin.command:
+    cmd: grep -E '^StopIdleSessionSec' /etc/systemd/logind.conf
+  register: _logind_timeout
+  changed_when: false
+  failed_when: false
+
+# --- Build results ---
+- name: Evaluate host hardening checks
+  ansible.builtin.set_fact:
+    aap_secure_host_results: "{{ aap_secure_host_results | default([]) + _host_results }}"
+  vars:
+    _tmp_has_noexec: "{{ 'noexec' in (_tmp_mount.stdout | default('')) }}"
+    _vartmp_has_noexec: "{{ 'noexec' in (_vartmp_mount.stdout | default('')) }}"
+    _ns_value: "{{ _user_ns.stdout | default('0') | trim }}"
+    _logind_value: "{{ _logind_timeout.stdout | default('') | regex_search('StopIdleSessionSec=(.+)', '\\1') | default(['Not set']) | first }}"
+    _host_results:
+      - name: fapolicyd installed
+        domain: Host Hardening
+        host: "{{ inventory_hostname }}"
+        status: "{{ 'PASS' if _fapolicyd_installed else 'FAIL' }}"
+        current_value: "{{ 'Installed' if _fapolicyd_installed else 'Not installed' }}"
+        recommended_value: "Installed"
+        description: "File access policy daemon must be installed"
+        remediation: "dnf install fapolicyd"
+        reference: "AAP Secure 2.7 - Fapolicyd"
+
+      - name: fapolicyd permissive mode
+        domain: Host Hardening
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if not _fapolicyd_installed -%}SKIPPED
+          {%- elif _fapolicyd_permissive == '1' -%}PASS
+          {%- else -%}WARNING{%- endif -%}
+        current_value: "permissive={{ _fapolicyd_permissive }}"
+        recommended_value: "permissive={{ _hh.fapolicyd.permissive }}"
+        description: "fapolicyd should be in permissive mode for AAP"
+        remediation: "Set permissive=1 in /etc/fapolicyd/fapolicyd.conf"
+        reference: "AAP Secure 2.7 - Fapolicyd"
+
+      - name: User Namespaces
+        domain: Host Hardening
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if (_ns_value | int) >= (_hh.user_namespaces.max_user_namespaces | int) -%}PASS
+          {%- elif (_ns_value | int) == 0 -%}FAIL
+          {%- else -%}WARNING{%- endif -%}
+        current_value: "{{ _ns_value }}"
+        recommended_value: "{{ _hh.user_namespaces.max_user_namespaces }}"
+        description: "user.max_user_namespaces required for execution environments"
+        remediation: "Set user.max_user_namespaces={{ _hh.user_namespaces.max_user_namespaces }} in /etc/sysctl.d/"
+        reference: "AAP Secure 2.7 - User namespaces"
+
+      - name: noexec on /tmp
+        domain: Host Hardening
+        host: "{{ inventory_hostname }}"
+        status: "{{ 'PASS' if _tmp_has_noexec else 'WARNING' }}"
+        current_value: "{{ _tmp_mount.stdout | default('Unable to determine') }}"
+        recommended_value: "noexec mount option (with job execution path override)"
+        description: "/tmp should be mounted with noexec after AAP installation"
+        remediation: "Add noexec mount option, configure alternate job execution path"
+        reference: "AAP Secure 2.7 - File systems mounted with noexec"
+
+      - name: noexec on /var/tmp
+        domain: Host Hardening
+        host: "{{ inventory_hostname }}"
+        status: "{{ 'PASS' if _vartmp_has_noexec else 'WARNING' }}"
+        current_value: "{{ _vartmp_mount.stdout | default('Unable to determine') }}"
+        recommended_value: "noexec mount option"
+        description: "/var/tmp should be mounted with noexec after AAP installation"
+        remediation: "Add noexec mount option to /var/tmp"
+        reference: "AAP Secure 2.7 - File systems mounted with noexec"
+
+      - name: Session Timeout
+        domain: Host Hardening
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if _logind_timeout.rc | default(1) != 0 -%}WARNING
+          {%- elif (_logind_value | int(0)) > 0 -%}PASS
+          {%- else -%}WARNING{%- endif -%}
+        current_value: "{{ _logind_value }}"
+        recommended_value: "StopIdleSessionSec={{ _hh.session_timeout.StopIdleSessionSec }}"
+        description: "Interactive session timeout via systemd-logind"
+        remediation: "Set StopIdleSessionSec={{ _hh.session_timeout.StopIdleSessionSec }} in /etc/systemd/logind.conf"
+        reference: "AAP Secure 2.7 - Interactive session timeout"
+
+- name: Evaluate log directory permissions
+  ansible.builtin.set_fact:
+    aap_secure_host_results: "{{ aap_secure_host_results | default([]) + [_log_result] }}"
+  vars:
+    _dir_stat: "{{ item.stat | default({}) }}"
+    _dir_mode: "{{ _dir_stat.mode | default('unknown') }}"
+    _expected_mode: "{{ item.item.mode }}"
+    _log_result:
+      name: "Log permissions - {{ item.item.path }}"
+      domain: Host Hardening
+      host: "{{ inventory_hostname }}"
+      status: >-
+        {%- if not (_dir_stat.exists | default(false)) -%}SKIPPED
+        {%- elif _dir_mode == _expected_mode -%}PASS
+        {%- else -%}FAIL{%- endif -%}
+      current_value: "{{ _dir_mode if (_dir_stat.exists | default(false)) else 'Directory not found' }}"
+      recommended_value: "{{ _expected_mode }}"
+      description: "Log directory {{ item.item.path }} must have restricted permissions"
+      remediation: "chmod {{ _expected_mode }} {{ item.item.path }}"
+      reference: "AAP Secure 2.7 - Implement security control for each host"
+  loop: "{{ _log_dirs.results }}"
+  when: _log_dirs is defined
+
+# --- Remediation ---
+- name: Remediate host hardening
+  when: aap_secure_mode == 'remediate'
+  block:
+    - name: Install fapolicyd
+      ansible.builtin.dnf:
+        name: fapolicyd
+        state: present
+      when: not _fapolicyd_installed
+
+    - name: Set fapolicyd to permissive mode
+      ansible.builtin.lineinfile:
+        path: /etc/fapolicyd/fapolicyd.conf
+        regexp: '^permissive\s*='
+        line: "permissive = {{ _hh.fapolicyd.permissive }}"
+      when: _fapolicyd_installed or not _fapolicyd_installed
+      notify: Restart fapolicyd
+
+    - name: Set user.max_user_namespaces
+      ansible.posix.sysctl:
+        name: user.max_user_namespaces
+        value: "{{ _hh.user_namespaces.max_user_namespaces }}"
+        sysctl_file: /etc/sysctl.d/99-aap-namespaces.conf
+        reload: true
+      when: (_ns_value | int) < (_hh.user_namespaces.max_user_namespaces | int)
+
+    - name: Set log directory permissions
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+      loop: "{{ _hh.log_permissions }}"
+      when: item.path is exists
+      failed_when: false
+
+    - name: Set session timeout
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/logind.conf
+        regexp: '^#?StopIdleSessionSec'
+        line: "StopIdleSessionSec={{ _hh.session_timeout.StopIdleSessionSec }}"
+      notify: Restart systemd-logind

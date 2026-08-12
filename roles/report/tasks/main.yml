@@ -1,0 +1,102 @@
+---
+- name: Collect results from API hosts
+  ansible.builtin.set_fact:
+    _api_results: >-
+      {{
+        groups['aap_gateway'] | default([])
+        | map('extract', hostvars, 'aap_secure_api_results')
+        | select('defined')
+        | flatten
+        | list
+      }}
+
+- name: Collect results from AAP hosts
+  ansible.builtin.set_fact:
+    _host_results: >-
+      {{
+        groups['aap_hosts'] | default([])
+        | map('extract', hostvars, 'aap_secure_host_results')
+        | select('defined')
+        | flatten
+        | list
+      }}
+
+- name: Collect results from managed nodes
+  ansible.builtin.set_fact:
+    _managed_results: >-
+      {{
+        groups['managed_nodes'] | default([])
+        | map('extract', hostvars, 'aap_secure_managed_results')
+        | select('defined')
+        | flatten
+        | list
+      }}
+
+- name: Aggregate all results
+  ansible.builtin.set_fact:
+    aap_secure_all_results: "{{ _api_results + _host_results + _managed_results }}"
+
+- name: Calculate compliance summary
+  ansible.builtin.set_fact:
+    aap_secure_summary:
+      total: "{{ aap_secure_all_results | length }}"
+      pass: "{{ aap_secure_all_results | selectattr('status', 'equalto', 'PASS') | list | length }}"
+      fail: "{{ aap_secure_all_results | selectattr('status', 'equalto', 'FAIL') | list | length }}"
+      warning: "{{ aap_secure_all_results | selectattr('status', 'equalto', 'WARNING') | list | length }}"
+      skipped: "{{ aap_secure_all_results | selectattr('status', 'equalto', 'SKIPPED') | list | length }}"
+      compliance_pct: >-
+        {{
+          ((aap_secure_all_results | selectattr('status', 'equalto', 'PASS') | list | length)
+          / (aap_secure_all_results | length | default(1, true)))
+          * 100
+        }}
+
+- name: Ensure report directory exists
+  ansible.builtin.file:
+    path: "{{ aap_secure_report_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Generate HTML compliance report
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/compliance_report.html.j2"
+    dest: "{{ aap_secure_report_dir }}/{{ aap_secure_report_filename }}.html"
+    mode: "0644"
+  when: aap_secure_report_format == 'html'
+
+- name: Generate JSON compliance report
+  ansible.builtin.copy:
+    content: >-
+      {{
+        {
+          'generated': lookup('pipe', 'date -Iseconds'),
+          'customer': aap_secure_customer_name,
+          'mode': aap_secure_mode,
+          'scope': aap_secure_scope,
+          'summary': aap_secure_summary,
+          'results': aap_secure_all_results
+        } | to_nice_json
+      }}
+    dest: "{{ aap_secure_report_dir }}/{{ aap_secure_report_filename }}.json"
+    mode: "0644"
+
+- name: Display compliance summary
+  ansible.builtin.debug:
+    msg: |
+      ========================================
+       AAP Security Compliance Report
+      ========================================
+       Mode:        {{ aap_secure_mode }}
+       Scope:       {{ aap_secure_scope }}
+       Customer:    {{ aap_secure_customer_name }}
+       Date:        {{ lookup('pipe', 'date +%Y-%m-%d') }}
+      ----------------------------------------
+       Total Checks: {{ aap_secure_summary.total }}
+       PASS:         {{ aap_secure_summary.pass }}
+       FAIL:         {{ aap_secure_summary.fail }}
+       WARNING:      {{ aap_secure_summary.warning }}
+       SKIPPED:      {{ aap_secure_summary.skipped }}
+       Compliance:   {{ aap_secure_summary.compliance_pct | float | round(1) }}%
+      ----------------------------------------
+       Report: {{ aap_secure_report_dir }}/{{ aap_secure_report_filename }}.html
+      ========================================

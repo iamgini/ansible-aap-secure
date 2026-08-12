@@ -1,0 +1,128 @@
+---
+# logging - Log aggregator configuration, activity stream, external logging
+
+- name: Merge logging baseline with customer overrides
+  ansible.builtin.set_fact:
+    _log: "{{ logging_baseline | combine(logging_overrides | default({}), recursive=true) }}"
+
+- name: Query logging settings
+  ansible.builtin.uri:
+    url: "{{ aap_hostname }}/api/v2/settings/logging/"
+    method: GET
+    url_username: "{{ aap_username | default(omit) }}"
+    url_password: "{{ aap_password | default(omit) }}"
+    force_basic_auth: "{{ true if aap_username is defined else false }}"
+    headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
+    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    status_code: [200]
+  register: _logging_settings
+  failed_when: false
+  no_log: true
+
+- name: Set logging API availability
+  ansible.builtin.set_fact:
+    _log_api_available: "{{ _logging_settings.status | default(0) == 200 }}"
+
+- name: Evaluate logging checks
+  ansible.builtin.set_fact:
+    aap_secure_api_results: "{{ aap_secure_api_results | default([]) + _logging_results }}"
+  vars:
+    _ls: "{{ _logging_settings.json | default({}) }}"
+    _logging_results:
+      - name: Log Aggregator Host
+        domain: Logging
+        status: >-
+          {%- if not _log_api_available -%}SKIPPED
+          {%- elif _ls.LOG_AGGREGATOR_HOST | default('') | length > 0 -%}PASS
+          {%- else -%}FAIL{%- endif -%}
+        current_value: "{{ _ls.LOG_AGGREGATOR_HOST | default('N/A - API unavailable') | default('Not configured', true) }}"
+        recommended_value: "Configured (Splunk/ELK/Sumologic endpoint)"
+        description: "External log aggregator hostname must be configured"
+        remediation: "Set LOG_AGGREGATOR_HOST in Settings > Logging"
+        reference: "AAP Secure 2.7 - Configure centralized logging"
+
+      - name: Log Aggregator Type
+        domain: Logging
+        status: >-
+          {%- if not _log_api_available -%}SKIPPED
+          {%- elif _ls.LOG_AGGREGATOR_TYPE | default('') | length > 0 -%}PASS
+          {%- else -%}FAIL{%- endif -%}
+        current_value: "{{ _ls.LOG_AGGREGATOR_TYPE | default('N/A - API unavailable') | default('Not configured', true) }}"
+        recommended_value: "{{ _log.log_aggregator_type }}"
+        description: "Log aggregator type must be configured"
+        remediation: "Set LOG_AGGREGATOR_TYPE in Settings > Logging"
+        reference: "AAP Secure 2.7 - Set up logging"
+
+      - name: External Logging Enabled
+        domain: Logging
+        status: >-
+          {%- if not _log_api_available -%}SKIPPED
+          {%- elif _ls.LOG_AGGREGATOR_ENABLED | default(false) -%}PASS
+          {%- else -%}FAIL{%- endif -%}
+        current_value: "{{ _ls.LOG_AGGREGATOR_ENABLED | default('N/A - API unavailable') }}"
+        recommended_value: "true"
+        description: "External logging must be enabled to forward logs"
+        remediation: "Enable External Logging in Settings > Logging"
+        reference: "AAP Secure 2.7 - Set up logging"
+
+      - name: Log Aggregator Protocol
+        domain: Logging
+        status: >-
+          {%- if not _log_api_available -%}SKIPPED
+          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('') == 'https' -%}PASS
+          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('') | length > 0 -%}WARNING
+          {%- else -%}SKIPPED{%- endif -%}
+        current_value: "{{ _ls.LOG_AGGREGATOR_PROTOCOL | default('N/A - API unavailable') }}"
+        recommended_value: "https"
+        description: "Log aggregator protocol should use HTTPS"
+        remediation: "Set LOG_AGGREGATOR_PROTOCOL to https"
+        reference: "AAP Secure 2.7 - Implement security control"
+
+      - name: HTTPS Certificate Verification
+        domain: Logging
+        status: >-
+          {%- if not _log_api_available -%}SKIPPED
+          {%- elif _ls.LOG_AGGREGATOR_VERIFY_CERT | default(false) -%}PASS
+          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('') == 'https' -%}FAIL
+          {%- else -%}SKIPPED{%- endif -%}
+        current_value: "{{ _ls.LOG_AGGREGATOR_VERIFY_CERT | default('N/A - API unavailable') }}"
+        recommended_value: "true"
+        description: "Verify HTTPS certificates for log aggregator connections"
+        remediation: "Enable HTTPS certificate verification in logging settings"
+        reference: "AAP Secure 2.7 - Implement security control"
+
+      - name: TCP Connection Timeout
+        domain: Logging
+        status: >-
+          {%- if not _log_api_available -%}SKIPPED
+          {%- elif (_ls.LOG_AGGREGATOR_TCP_TIMEOUT | default(0) | int) > 0 -%}PASS
+          {%- else -%}WARNING{%- endif -%}
+        current_value: "{{ _ls.LOG_AGGREGATOR_TCP_TIMEOUT | default('N/A - API unavailable') }}"
+        recommended_value: "{{ _log.log_aggregator_tcp_timeout }}"
+        description: "TCP connection timeout for log aggregator"
+        remediation: "Set LOG_AGGREGATOR_TCP_TIMEOUT to {{ _log.log_aggregator_tcp_timeout }}"
+        reference: "AAP Secure 2.7 - Set up logging"
+
+- name: Remediate logging settings
+  when:
+    - aap_secure_mode == 'remediate'
+    - _log_api_available
+  ansible.builtin.uri:
+    url: "{{ aap_hostname }}/api/v2/settings/logging/"
+    method: PATCH
+    url_username: "{{ aap_username | default(omit) }}"
+    url_password: "{{ aap_password | default(omit) }}"
+    force_basic_auth: "{{ true if aap_username is defined else false }}"
+    headers: >-
+      {{ {'Authorization': 'Bearer ' + aap_oauthtoken, 'Content-Type': 'application/json'}
+         if aap_oauthtoken is defined
+         else {'Content-Type': 'application/json'} }}
+    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    body_format: json
+    body:
+      LOG_AGGREGATOR_ENABLED: true
+      LOG_AGGREGATOR_TCP_TIMEOUT: "{{ _log.log_aggregator_tcp_timeout }}"
+      LOG_AGGREGATOR_VERIFY_CERT: "{{ _log.log_aggregator_https_verify }}"
+    status_code: [200]
+  failed_when: false
+  no_log: true

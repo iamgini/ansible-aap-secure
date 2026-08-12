@@ -1,0 +1,38 @@
+---
+# Customer-specific overrides for security baseline values.
+# Uncomment and modify as needed per engagement.
+
+# Example: Allow 3 concurrent sessions instead of 1
+# gateway_overrides:
+#   SESSIONS_PER_USER: 3
+#   SESSION_COOKIE_AGE: 3600
+
+# Example: Keep local authenticator enabled
+# authentication_overrides:
+#   local_authenticator_enabled: true
+
+# Example: Allow up to 3 superusers
+# rbac_overrides:
+#   max_superusers: 3
+
+# Example: Customer uses ELK instead of Splunk
+# logging_overrides:
+#   log_aggregator_type: elk
+
+# Example: Longer session timeout for installation hosts
+# host_hardening_overrides:
+#   session_timeout:
+#     StopIdleSessionSec: 14400
+
+# Example: Managed node service account name
+# managed_nodes_overrides:
+#   service_account:
+#     name: aapsvc
+
+# Example: Controller IPs for pam_access
+# managed_nodes_overrides:
+#   pam_access:
+#     allowed_sources:
+#       - controller1.example.com
+#       - controller2.example.com
+#       - en1.example.com

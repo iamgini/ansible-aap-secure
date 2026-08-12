@@ -1,0 +1,203 @@
+---
+# managed_nodes - Service account, sudoers, SSH config, pam_access
+
+- name: Merge managed nodes baseline with customer overrides
+  ansible.builtin.set_fact:
+    _mn: "{{ managed_nodes_baseline | combine(managed_nodes_overrides | default({}), recursive=true) }}"
+
+# --- Service account ---
+- name: Check if service account exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ _mn.service_account.name }}"
+  register: _svc_account
+  failed_when: false
+
+- name: Check if service account has password disabled
+  ansible.builtin.command:
+    cmd: "passwd -S {{ _mn.service_account.name }}"
+  register: _svc_passwd
+  changed_when: false
+  failed_when: false
+
+- name: Check authorized_keys for service account
+  ansible.builtin.stat:
+    path: "/home/{{ _mn.service_account.name }}/.ssh/authorized_keys"
+  register: _svc_authkeys
+  failed_when: false
+
+# --- Sudoers ---
+- name: Check sudoers file
+  ansible.builtin.stat:
+    path: "{{ _mn.sudoers.file }}"
+  register: _sudoers_file
+
+- name: Read sudoers file content
+  ansible.builtin.slurp:
+    src: "{{ _mn.sudoers.file }}"
+  register: _sudoers_content
+  when: _sudoers_file.stat.exists | default(false)
+  failed_when: false
+
+# --- SSH config ---
+- name: Check sshd config for service account
+  ansible.builtin.stat:
+    path: "{{ _mn.sshd.config_file }}"
+  register: _sshd_conf_file
+
+- name: Read sshd config content
+  ansible.builtin.slurp:
+    src: "{{ _mn.sshd.config_file }}"
+  register: _sshd_content
+  when: _sshd_conf_file.stat.exists | default(false)
+  failed_when: false
+
+- name: Check main sshd_config for PasswordAuthentication
+  ansible.builtin.command:
+    cmd: "grep -E 'Match\\s+User\\s+{{ _mn.service_account.name }}' /etc/ssh/sshd_config"
+  register: _sshd_main_match
+  changed_when: false
+  failed_when: false
+
+# --- pam_access ---
+- name: Check pam_access configuration
+  ansible.builtin.stat:
+    path: "{{ _mn.pam_access.config_file }}"
+  register: _pam_access_file
+
+- name: Check for service account in access.conf
+  ansible.builtin.command:
+    cmd: "grep '{{ _mn.service_account.name }}' {{ _mn.pam_access.config_file }}"
+  register: _pam_access_entry
+  changed_when: false
+  failed_when: false
+  when: _pam_access_file.stat.exists | default(false)
+
+- name: Check if with-pamaccess is enabled
+  ansible.builtin.command:
+    cmd: authselect current
+  register: _authselect_status
+  changed_when: false
+  failed_when: false
+
+# --- Build results ---
+- name: Evaluate managed node checks
+  ansible.builtin.set_fact:
+    aap_secure_managed_results: "{{ aap_secure_managed_results | default([]) + _managed_results }}"
+  vars:
+    _acct_exists: "{{ _svc_account is not failed and getent_passwd is defined and getent_passwd[_mn.service_account.name] is not none }}"
+    _passwd_locked: "{{ 'L' in (_svc_passwd.stdout | default('')) or 'LK' in (_svc_passwd.stdout | default('')) }}"
+    _has_ssh_keys: "{{ _svc_authkeys.stat.exists | default(false) and (_svc_authkeys.stat.size | default(0)) > 0 }}"
+    _sudoers_exists: "{{ _sudoers_file.stat.exists | default(false) }}"
+    _sudoers_mode: "{{ _sudoers_file.stat.mode | default('unknown') }}"
+    _sudoers_has_nopasswd: "{{ 'NOPASSWD' in (_sudoers_content.content | default('') | b64decode) if _sudoers_exists else false }}"
+    _sshd_exists: "{{ _sshd_conf_file.stat.exists | default(false) }}"
+    _sshd_pw_disabled: >-
+      {{ 'PasswordAuthentication no' in (_sshd_content.content | default('') | b64decode)
+         if _sshd_exists else
+         (_sshd_main_match.rc | default(1)) == 0 }}
+    _pam_configured: "{{ (_pam_access_entry.rc | default(1)) == 0 if (_pam_access_file.stat.exists | default(false)) else false }}"
+    _pamaccess_enabled: "{{ 'with-pamaccess' in (_authselect_status.stdout | default('')) }}"
+    _managed_results:
+      - name: Service Account
+        domain: Managed Nodes
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if _acct_exists and _has_ssh_keys -%}PASS
+          {%- elif _acct_exists -%}WARNING
+          {%- else -%}FAIL{%- endif -%}
+        current_value: >-
+          {%- if _acct_exists -%}Account exists
+          {{- ', SSH keys present' if _has_ssh_keys else ', no SSH keys' }}
+          {{- ', password locked' if _passwd_locked else '' }}
+          {%- else -%}Account does not exist{%- endif -%}
+        recommended_value: "{{ _mn.service_account.name }} (system account, SSH key only)"
+        description: "Dedicated service account for AAP automation"
+        remediation: "useradd {{ _mn.service_account.name }} --system --create-home"
+        reference: "AAP Secure 2.7 - Create a dedicated service account with access limits"
+
+      - name: Sudoers Configuration
+        domain: Managed Nodes
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if _sudoers_exists and _sudoers_has_nopasswd and _sudoers_mode == _mn.sudoers.mode -%}PASS
+          {%- elif _sudoers_exists and _sudoers_mode != _mn.sudoers.mode -%}WARNING
+          {%- elif _sudoers_exists -%}WARNING
+          {%- else -%}FAIL{%- endif -%}
+        current_value: >-
+          {%- if _sudoers_exists -%}{{ _mn.sudoers.file }} exists (mode {{ _sudoers_mode }}){{ ', NOPASSWD set' if _sudoers_has_nopasswd else '' }}
+          {%- else -%}{{ _mn.sudoers.file }} not found{%- endif -%}
+        recommended_value: "{{ _mn.sudoers.file }} (mode {{ _mn.sudoers.mode }})"
+        description: "Sudoers file with NOPASSWD for service account"
+        remediation: "Create {{ _mn.sudoers.file }} with mode {{ _mn.sudoers.mode }}"
+        reference: "AAP Secure 2.7 - Configure sudo privileges for service account"
+
+      - name: SSH Password Auth
+        domain: Managed Nodes
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if _sshd_pw_disabled -%}PASS
+          {%- else -%}FAIL{%- endif -%}
+        current_value: >-
+          {%- if _sshd_exists -%}sshd config found{{ ', PasswordAuthentication no' if _sshd_pw_disabled else '' }}
+          {%- elif _sshd_main_match.rc | default(1) == 0 -%}Match block in main sshd_config
+          {%- else -%}No SSH restriction for {{ _mn.service_account.name }}{%- endif -%}
+        recommended_value: "PasswordAuthentication no for {{ _mn.service_account.name }}"
+        description: "Password authentication must be disabled for service account"
+        remediation: "Create {{ _mn.sshd.config_file }} with Match User / PasswordAuthentication no"
+        reference: "AAP Secure 2.7 - Require SSH key authentication for service account"
+
+      - name: pam_access Controls
+        domain: Managed Nodes
+        host: "{{ inventory_hostname }}"
+        status: >-
+          {%- if _pam_configured and _pamaccess_enabled -%}PASS
+          {%- elif _pam_configured -%}WARNING
+          {%- else -%}FAIL{%- endif -%}
+        current_value: >-
+          {%- if _pam_configured and _pamaccess_enabled -%}Configured and enabled
+          {%- elif _pam_configured -%}access.conf configured but with-pamaccess not enabled
+          {%- elif _pamaccess_enabled -%}with-pamaccess enabled but no rules for {{ _mn.service_account.name }}
+          {%- else -%}Not configured{%- endif -%}
+        recommended_value: "Enabled, restricting {{ _mn.service_account.name }} to controller/execution nodes"
+        description: "Restrict service account login to AAP infrastructure"
+        remediation: "Configure /etc/security/access.conf and run authselect enable-feature with-pamaccess"
+        reference: "AAP Secure 2.7 - Enable and configure pam_access controls"
+
+# --- Remediation ---
+- name: Remediate managed node settings
+  when: aap_secure_mode == 'remediate'
+  block:
+    - name: Create service account
+      ansible.builtin.user:
+        name: "{{ _mn.service_account.name }}"
+        system: "{{ _mn.service_account.system_account }}"
+        shell: "{{ _mn.service_account.shell }}"
+        create_home: true
+        state: present
+      when: not _acct_exists
+
+    - name: Create sudoers file
+      ansible.builtin.copy:
+        content: |
+          # Rules for the {{ _mn.service_account.name }} service account
+          {{ _mn.sudoers.content }}
+        dest: "{{ _mn.sudoers.file }}"
+        mode: "{{ _mn.sudoers.mode }}"
+        owner: root
+        group: root
+        validate: visudo -cf %s
+
+    - name: Create sshd config for service account
+      ansible.builtin.copy:
+        content: |
+          # sshd config applied to the {{ _mn.service_account.name }} service account
+          Match User {{ _mn.service_account.name }}
+              PasswordAuthentication no
+          Match all
+        dest: "{{ _mn.sshd.config_file }}"
+        mode: "0644"
+        owner: root
+        group: root
+        validate: sshd -t -f /dev/null
+      notify: Restart sshd

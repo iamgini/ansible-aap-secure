@@ -1,0 +1,11 @@
+---
+- name: Restart fapolicyd
+  ansible.builtin.systemd:
+    name: fapolicyd
+    state: restarted
+    enabled: true
+
+- name: Restart systemd-logind
+  ansible.builtin.systemd:
+    name: systemd-logind
+    state: restarted

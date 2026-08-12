@@ -1,0 +1,126 @@
+---
+# authentication - Authenticator type, LDAP/SAML/OIDC config, local auth status
+
+- name: Merge authentication baseline with customer overrides
+  ansible.builtin.set_fact:
+    _auth: "{{ authentication_baseline | combine(authentication_overrides | default({}), recursive=true) }}"
+
+- name: Query authenticators
+  ansible.builtin.uri:
+    url: "{{ aap_hostname }}/api/gateway/v1/authenticators/"
+    method: GET
+    url_username: "{{ aap_username | default(omit) }}"
+    url_password: "{{ aap_password | default(omit) }}"
+    force_basic_auth: "{{ true if aap_username is defined else false }}"
+    headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
+    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    status_code: [200]
+  register: _authenticators
+  failed_when: false
+  no_log: true
+
+- name: Set authentication API availability
+  ansible.builtin.set_fact:
+    _auth_api_available: "{{ _authenticators.status | default(0) == 200 }}"
+
+- name: Parse authenticator data
+  when: _auth_api_available
+  ansible.builtin.set_fact:
+    _auth_list: "{{ _authenticators.json.results | default([]) }}"
+    _local_auths: "{{ _authenticators.json.results | default([]) | selectattr('type', 'contains', 'local') | list }}"
+    _external_auths: "{{ _authenticators.json.results | default([]) | rejectattr('type', 'contains', 'local') | list }}"
+    _ldap_auths: "{{ _authenticators.json.results | default([]) | selectattr('type', 'contains', 'ldap') | list }}"
+
+- name: Set empty lists when API unavailable
+  when: not _auth_api_available
+  ansible.builtin.set_fact:
+    _auth_list: []
+    _local_auths: []
+    _external_auths: []
+    _ldap_auths: []
+
+- name: Check for enabled local authenticator
+  ansible.builtin.set_fact:
+    _local_auth_enabled: "{{ _local_auths | selectattr('enabled', 'equalto', true) | list | length > 0 }}"
+    _external_auth_configured: "{{ _external_auths | selectattr('enabled', 'equalto', true) | list | length > 0 }}"
+
+- name: Query authenticator maps
+  ansible.builtin.uri:
+    url: "{{ aap_hostname }}/api/gateway/v1/authenticator_maps/"
+    method: GET
+    url_username: "{{ aap_username | default(omit) }}"
+    url_password: "{{ aap_password | default(omit) }}"
+    force_basic_auth: "{{ true if aap_username is defined else false }}"
+    headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
+    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    status_code: [200]
+  register: _auth_maps
+  failed_when: false
+  no_log: true
+
+- name: Evaluate authentication checks
+  ansible.builtin.set_fact:
+    aap_secure_api_results: "{{ aap_secure_api_results | default([]) + _auth_results }}"
+  vars:
+    _maps_configured: "{{ (_auth_maps.json.results | default([]) | length) > 0 }}"
+    _auth_results:
+      - name: Local Authenticator
+        domain: Authentication
+        status: >-
+          {%- if not _auth_api_available -%}SKIPPED
+          {%- elif not _local_auth_enabled -%}PASS
+          {%- elif _local_auth_enabled and _external_auth_configured -%}WARNING
+          {%- else -%}FAIL{%- endif -%}
+        current_value: >-
+          {%- if not _auth_api_available -%}N/A - API unavailable
+          {%- elif _local_auth_enabled -%}Enabled
+          {%- else -%}Disabled{%- endif -%}
+        recommended_value: "Disabled (when external auth configured)"
+        description: "Local authenticator should be disabled when external auth is in use"
+        remediation: "Disable local authenticator in Access Management > Authentication Methods"
+        reference: "AAP Secure 2.7 - Enable and disable the local authenticator"
+
+      - name: External Authentication
+        domain: Authentication
+        status: >-
+          {%- if not _auth_api_available -%}SKIPPED
+          {%- elif _external_auth_configured -%}PASS
+          {%- else -%}FAIL{%- endif -%}
+        current_value: >-
+          {%- if not _auth_api_available -%}N/A - API unavailable
+          {%- elif _external_auth_configured -%}{{ _external_auths | selectattr('enabled', 'equalto', true) | map(attribute='type') | join(', ') }}
+          {%- else -%}Not configured{%- endif -%}
+        recommended_value: "LDAPS, SAML, or OIDC configured"
+        description: "Enterprise authentication source must be configured"
+        remediation: "Configure LDAP, SAML, or OIDC authenticator"
+        reference: "AAP Secure 2.7 - Configure central authentication"
+
+      - name: Authenticator Maps
+        domain: Authentication
+        status: >-
+          {%- if not _auth_api_available -%}SKIPPED
+          {%- elif _maps_configured -%}PASS
+          {%- elif _external_auth_configured -%}WARNING
+          {%- else -%}SKIPPED{%- endif -%}
+        current_value: >-
+          {%- if not _auth_api_available -%}N/A - API unavailable
+          {%- else -%}{{ _auth_maps.json.results | default([]) | length }} maps configured{%- endif -%}
+        recommended_value: "Configured with proper mapping order"
+        description: "Authentication mapping rules control access and permissions"
+        remediation: "Define authenticator maps with allow, org, team, and role mappings"
+        reference: "AAP Secure 2.7 - Map external authenticators to AAP"
+
+      - name: LDAP over TLS
+        domain: Authentication
+        status: >-
+          {%- if not _auth_api_available -%}SKIPPED
+          {%- elif _ldap_auths | length == 0 -%}SKIPPED
+          {%- elif _ldap_auths | selectattr('configuration', 'defined') | list | length > 0 -%}WARNING
+          {%- else -%}SKIPPED{%- endif -%}
+        current_value: >-
+          {%- if _ldap_auths | length > 0 -%}{{ _ldap_auths | length }} LDAP authenticator(s) found - verify LDAPS
+          {%- else -%}No LDAP authenticators{%- endif -%}
+        recommended_value: "LDAPS (ldaps://) for all LDAP connections"
+        description: "LDAP connections must use TLS encryption"
+        remediation: "Change LDAP server URI to ldaps:// scheme"
+        reference: "AAP Secure 2.7 - Configure LDAP authentication"
