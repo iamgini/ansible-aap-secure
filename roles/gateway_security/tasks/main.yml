@@ -36,9 +36,15 @@
   failed_when: false
   no_log: true
 
-- name: Show API response status codes
+- name: Show API response details
   ansible.builtin.debug:
-    msg: "Gateway API: {{ _gw_settings.status | default('no response') }} | Controller API: {{ _sys_settings.status | default('no response') }} | URL: {{ _gw_settings.url | default('unknown') }}"
+    msg: >-
+      Gateway API: {{ _gw_settings.status | default('no response') }}
+      ({{ _gw_settings.msg | default('no message') }}) |
+      Controller API: {{ _sys_settings.status | default('no response') }}
+      ({{ _sys_settings.msg | default('no message') }}) |
+      URL: {{ _gw_settings.url | default('unknown') }} |
+      validate_certs: {{ aap_validate_certs }}
 
 - name: Set API availability flag
   ansible.builtin.set_fact:
