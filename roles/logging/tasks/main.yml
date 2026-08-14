@@ -7,7 +7,7 @@
 
 - name: Query logging settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/settings/logging/"
+    url: "{{ aap_hostname }}/api/controller/v2/settings/logging/"
     method: GET
     url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
     url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
@@ -33,9 +33,9 @@
         domain: Logging
         status: >-
           {%- if not _log_api_available -%}SKIPPED
-          {%- elif _ls.LOG_AGGREGATOR_HOST | default('') | length > 0 -%}PASS
+          {%- elif _ls.LOG_AGGREGATOR_HOST | default('', true) | length > 0 -%}PASS
           {%- else -%}FAIL{%- endif -%}
-        current_value: "{{ _ls.LOG_AGGREGATOR_HOST | default('N/A - API unavailable') | default('Not configured', true) }}"
+        current_value: "{{ _ls.LOG_AGGREGATOR_HOST | default('Not configured', true) }}"
         recommended_value: "Configured (Splunk/ELK/Sumologic endpoint)"
         description: "External log aggregator hostname must be configured"
         remediation: "Set LOG_AGGREGATOR_HOST in Settings > Logging"
@@ -45,9 +45,9 @@
         domain: Logging
         status: >-
           {%- if not _log_api_available -%}SKIPPED
-          {%- elif _ls.LOG_AGGREGATOR_TYPE | default('') | length > 0 -%}PASS
+          {%- elif _ls.LOG_AGGREGATOR_TYPE | default('', true) | length > 0 -%}PASS
           {%- else -%}FAIL{%- endif -%}
-        current_value: "{{ _ls.LOG_AGGREGATOR_TYPE | default('N/A - API unavailable') | default('Not configured', true) }}"
+        current_value: "{{ _ls.LOG_AGGREGATOR_TYPE | default('Not configured', true) }}"
         recommended_value: "{{ _log.log_aggregator_type }}"
         description: "Log aggregator type must be configured"
         remediation: "Set LOG_AGGREGATOR_TYPE in Settings > Logging"
@@ -69,10 +69,10 @@
         domain: Logging
         status: >-
           {%- if not _log_api_available -%}SKIPPED
-          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('') == 'https' -%}PASS
-          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('') | length > 0 -%}WARNING
+          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('', true) == 'https' -%}PASS
+          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('', true) | length > 0 -%}WARNING
           {%- else -%}SKIPPED{%- endif -%}
-        current_value: "{{ _ls.LOG_AGGREGATOR_PROTOCOL | default('N/A - API unavailable') }}"
+        current_value: "{{ _ls.LOG_AGGREGATOR_PROTOCOL | default('Not configured', true) }}"
         recommended_value: "https"
         description: "Log aggregator protocol should use HTTPS"
         remediation: "Set LOG_AGGREGATOR_PROTOCOL to https"
@@ -83,7 +83,7 @@
         status: >-
           {%- if not _log_api_available -%}SKIPPED
           {%- elif _ls.LOG_AGGREGATOR_VERIFY_CERT | default(false) -%}PASS
-          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('') == 'https' -%}FAIL
+          {%- elif _ls.LOG_AGGREGATOR_PROTOCOL | default('', true) == 'https' -%}FAIL
           {%- else -%}SKIPPED{%- endif -%}
         current_value: "{{ _ls.LOG_AGGREGATOR_VERIFY_CERT | default('N/A - API unavailable') }}"
         recommended_value: "true"
@@ -108,7 +108,7 @@
     - aap_secure_mode == 'remediate'
     - _log_api_available
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/settings/logging/"
+    url: "{{ aap_hostname }}/api/controller/v2/settings/logging/"
     method: PATCH
     url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
     url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"

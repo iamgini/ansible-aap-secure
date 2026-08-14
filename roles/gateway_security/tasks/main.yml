@@ -1,8 +1,7 @@
 ---
-# gateway_security - Gateway settings checks
-# Checks: SESSION_COOKIE_SECURE, SESSION_COOKIE_AGE, SESSIONS_PER_USER,
-#         CSRF_TRUSTED_ORIGINS, REMOTE_HOST_HEADERS, PROXY_IP_ALLOWED_LIST,
-#         ALLOW_OAUTH2_FOR_EXTERNAL_USERS
+# gateway_security - Gateway and controller settings checks
+# Gateway API: SESSION_COOKIE_AGE, CSRF_TRUSTED_ORIGINS, ALLOW_OAUTH2_FOR_EXTERNAL_USERS
+# Controller API: REMOTE_HOST_HEADERS, ACTIVITY_STREAM, INSIGHTS_TRACKING
 
 - name: Merge gateway baseline with customer overrides
   ansible.builtin.set_fact:
@@ -10,7 +9,7 @@
 
 - name: Query gateway settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/gateway/v1/settings/"
+    url: "{{ aap_hostname }}/api/gateway/v1/settings/all/"
     method: GET
     url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
     url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
@@ -24,7 +23,7 @@
 
 - name: Query controller system settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/settings/system/"
+    url: "{{ aap_hostname }}/api/controller/v2/settings/system/"
     method: GET
     url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
     url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
@@ -58,18 +57,6 @@
     _gw_json: "{{ _gw_settings.json | default({}) }}"
     _sys_json: "{{ _sys_settings.json | default({}) }}"
     _gateway_results:
-      - name: SESSION_COOKIE_SECURE
-        domain: Gateway Security
-        status: >-
-          {%- if not _gw_api_available -%}SKIPPED
-          {%- elif _gw_json.SESSION_COOKIE_SECURE | default(false) == _gw.SESSION_COOKIE_SECURE -%}PASS
-          {%- else -%}FAIL{%- endif -%}
-        current_value: "{{ _gw_json.SESSION_COOKIE_SECURE | default('N/A - API unavailable') }}"
-        recommended_value: "{{ _gw.SESSION_COOKIE_SECURE }}"
-        description: "Session cookies transmitted only over HTTPS"
-        remediation: "Set SESSION_COOKIE_SECURE to true in gateway settings"
-        reference: "AAP Secure 2.7 - Harden the platform security posture"
-
       - name: SESSION_COOKIE_AGE
         domain: Gateway Security
         status: >-
@@ -81,19 +68,6 @@
         description: "Session cookie lifetime in seconds"
         remediation: "Set SESSION_COOKIE_AGE to {{ _gw.SESSION_COOKIE_AGE }} or less"
         reference: "AAP Secure 2.7 - Configure platform gateway route timeouts"
-
-      - name: SESSIONS_PER_USER
-        domain: Gateway Security
-        status: >-
-          {%- if not _gw_api_available -%}SKIPPED
-          {%- elif (_gw_json.SESSIONS_PER_USER | default(-1) | int) > 0 and (_gw_json.SESSIONS_PER_USER | int) <= (_gw.SESSIONS_PER_USER | int) -%}PASS
-          {%- elif (_gw_json.SESSIONS_PER_USER | default(-1) | int) == -1 -%}WARNING
-          {%- else -%}FAIL{%- endif -%}
-        current_value: "{{ _gw_json.SESSIONS_PER_USER | default('N/A - API unavailable') }}"
-        recommended_value: "{{ _gw.SESSIONS_PER_USER }}"
-        description: "Maximum concurrent sessions per user (-1 = unlimited)"
-        remediation: "Set SESSIONS_PER_USER to {{ _gw.SESSIONS_PER_USER }}"
-        reference: "AAP Secure 2.7 - Harden the platform security posture"
 
       - name: CSRF_TRUSTED_ORIGINS
         domain: Gateway Security
@@ -107,38 +81,56 @@
         remediation: "Configure CSRF_TRUSTED_ORIGINS with known gateway URLs"
         reference: "AAP Secure 2.7 - Harden the platform security posture"
 
-      - name: REMOTE_HOST_HEADERS
+      - name: ALLOW_OAUTH2_FOR_EXTERNAL_USERS
         domain: Gateway Security
         status: >-
           {%- if not _gw_api_available -%}SKIPPED
-          {%- elif _gw_json.REMOTE_HOST_HEADERS | default([]) | length > 0 -%}PASS
+          {%- elif _gw_json.ALLOW_OAUTH2_FOR_EXTERNAL_USERS | default(true) == _gw.ALLOW_OAUTH2_FOR_EXTERNAL_USERS -%}PASS
+          {%- else -%}FAIL{%- endif -%}
+        current_value: "{{ _gw_json.ALLOW_OAUTH2_FOR_EXTERNAL_USERS | default('N/A - API unavailable') }}"
+        recommended_value: "{{ _gw.ALLOW_OAUTH2_FOR_EXTERNAL_USERS }}"
+        description: "Prevent external users from creating OAuth2 tokens"
+        remediation: "Set ALLOW_OAUTH2_FOR_EXTERNAL_USERS to false"
+        reference: "AAP Secure 2.7 - Security settings for OAuth2 tokens"
+
+      - name: REMOTE_HOST_HEADERS
+        domain: Gateway Security
+        status: >-
+          {%- if not _sys_api_available -%}SKIPPED
+          {%- elif _sys_json.REMOTE_HOST_HEADERS | default([]) | length > 0 -%}PASS
           {%- else -%}WARNING{%- endif -%}
-        current_value: "{{ _gw_json.REMOTE_HOST_HEADERS | default('N/A - API unavailable') }}"
+        current_value: "{{ _sys_json.REMOTE_HOST_HEADERS | default('N/A - API unavailable') }}"
         recommended_value: "{{ _gw.REMOTE_HOST_HEADERS }}"
         description: "Headers used to determine client IP address"
         remediation: "Set REMOTE_HOST_HEADERS to [REMOTE_ADDR, REMOTE_HOST]"
         reference: "AAP Secure 2.7 - Harden the platform security posture"
 
-      - name: ALLOW_OAUTH2_FOR_EXTERNAL_USERS
+      - name: SESSION_COOKIE_SECURE
         domain: Gateway Security
-        status: >-
-          {%- if not _sys_api_available -%}SKIPPED
-          {%- elif _sys_json.ALLOW_OAUTH2_FOR_EXTERNAL_USERS | default(true) == _gw.ALLOW_OAUTH2_FOR_EXTERNAL_USERS -%}PASS
-          {%- else -%}FAIL{%- endif -%}
-        current_value: "{{ _sys_json.ALLOW_OAUTH2_FOR_EXTERNAL_USERS | default('N/A - API unavailable') }}"
-        recommended_value: "{{ _gw.ALLOW_OAUTH2_FOR_EXTERNAL_USERS }}"
-        description: "Prevent external users from creating OAuth2 tokens"
-        remediation: "Set ALLOW_OAUTH2_FOR_EXTERNAL_USERS to false"
-        reference: "AAP Secure 2.7 - Security settings for OAuth2 tokens"
+        status: WARNING
+        current_value: "Not exposed via AAP 2.7 API - verify in NGINX config"
+        recommended_value: "{{ _gw.SESSION_COOKIE_SECURE }}"
+        description: "Session cookies transmitted only over HTTPS"
+        remediation: "Verify Secure flag in NGINX proxy configuration or Django settings"
+        reference: "AAP Secure 2.7 - Harden the platform security posture"
+
+      - name: SESSIONS_PER_USER
+        domain: Gateway Security
+        status: WARNING
+        current_value: "Not exposed via AAP 2.7 API - verify in gateway configuration"
+        recommended_value: "{{ _gw.SESSIONS_PER_USER }}"
+        description: "Maximum concurrent sessions per user"
+        remediation: "Verify session limits in gateway configuration"
+        reference: "AAP Secure 2.7 - Harden the platform security posture"
 
 - name: Remediate gateway settings
   when:
     - aap_secure_mode == 'remediate'
     - _gw_api_available
   block:
-    - name: Apply SESSION_COOKIE_SECURE
+    - name: Apply gateway security settings
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/gateway/v1/settings/"
+        url: "{{ aap_hostname }}/api/gateway/v1/settings/configuration/"
         method: PATCH
         url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
         url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
@@ -150,9 +142,7 @@
         validate_certs: "{{ aap_validate_certs | default(true) }}"
         body_format: json
         body:
-          SESSION_COOKIE_SECURE: "{{ _gw.SESSION_COOKIE_SECURE }}"
           SESSION_COOKIE_AGE: "{{ _gw.SESSION_COOKIE_AGE }}"
-          SESSIONS_PER_USER: "{{ _gw.SESSIONS_PER_USER }}"
         status_code: [200]
       failed_when: false
       no_log: true

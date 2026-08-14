@@ -7,7 +7,7 @@
 
 - name: Query superusers
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/users/?is_superuser=true"
+    url: "{{ aap_hostname }}/api/controller/v2/users/?is_superuser=true"
     method: GET
     url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
     url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
@@ -21,7 +21,7 @@
 
 - name: Query system settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/settings/system/"
+    url: "{{ aap_hostname }}/api/controller/v2/settings/system/"
     method: GET
     url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
     url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
@@ -35,7 +35,7 @@
 
 - name: Query job settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/settings/jobs/"
+    url: "{{ aap_hostname }}/api/controller/v2/settings/jobs/"
     method: GET
     url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
     url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
