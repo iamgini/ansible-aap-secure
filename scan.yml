@@ -56,9 +56,9 @@
 
 # --- Play 2: Host-level security checks (fapolicyd, namespaces, noexec, TLS) ---
 - name: AAP Security - Host Checks
-  hosts: "{{ (aap_secure_scope | default('all')) in ['all', 'hosts'] | ternary('aap_hosts', 'localhost') }}"
-  become: "{{ (aap_secure_scope | default('all')) in ['all', 'hosts'] }}"
-  gather_facts: "{{ (aap_secure_scope | default('all')) in ['all', 'hosts'] }}"
+  hosts: "{{ 'aap_hosts' if (aap_secure_scope | default('all')) in ['all', 'hosts'] else 'localhost' }}"
+  become: "{{ true if (aap_secure_scope | default('all')) in ['all', 'hosts'] else false }}"
+  gather_facts: "{{ true if (aap_secure_scope | default('all')) in ['all', 'hosts'] else false }}"
   vars_files:
     - vars/security_baseline.yml
     - vars/customer_overrides.yml
@@ -84,9 +84,9 @@
 
 # --- Play 3: Managed node security checks ---
 - name: AAP Security - Managed Node Checks
-  hosts: "{{ (aap_secure_scope | default('all')) in ['all', 'hosts'] | ternary('managed_nodes', 'localhost') }}"
-  become: "{{ (aap_secure_scope | default('all')) in ['all', 'hosts'] }}"
-  gather_facts: "{{ (aap_secure_scope | default('all')) in ['all', 'hosts'] }}"
+  hosts: "{{ 'managed_nodes' if (aap_secure_scope | default('all')) in ['all', 'hosts'] else 'localhost' }}"
+  become: "{{ true if (aap_secure_scope | default('all')) in ['all', 'hosts'] else false }}"
+  gather_facts: "{{ true if (aap_secure_scope | default('all')) in ['all', 'hosts'] else false }}"
   vars_files:
     - vars/security_baseline.yml
     - vars/customer_overrides.yml
