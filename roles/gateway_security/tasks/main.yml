@@ -12,9 +12,9 @@
   ansible.builtin.uri:
     url: "{{ aap_hostname }}/api/gateway/v1/settings/"
     method: GET
-    url_username: "{{ aap_username | default(omit) }}"
-    url_password: "{{ aap_password | default(omit) }}"
-    force_basic_auth: "{{ true if aap_username is defined else false }}"
+    url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
+    url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
+    force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
     headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
     validate_certs: "{{ aap_validate_certs | default(true) }}"
     status_code: [200]
@@ -26,9 +26,9 @@
   ansible.builtin.uri:
     url: "{{ aap_hostname }}/api/v2/settings/system/"
     method: GET
-    url_username: "{{ aap_username | default(omit) }}"
-    url_password: "{{ aap_password | default(omit) }}"
-    force_basic_auth: "{{ true if aap_username is defined else false }}"
+    url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
+    url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
+    force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
     headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
     validate_certs: "{{ aap_validate_certs | default(true) }}"
     status_code: [200]
@@ -130,9 +130,9 @@
       ansible.builtin.uri:
         url: "{{ aap_hostname }}/api/gateway/v1/settings/"
         method: PATCH
-        url_username: "{{ aap_username | default(omit) }}"
-        url_password: "{{ aap_password | default(omit) }}"
-        force_basic_auth: "{{ true if aap_username is defined else false }}"
+        url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
+        url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
+        force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
         headers: >-
           {{ {'Authorization': 'Bearer ' + aap_oauthtoken, 'Content-Type': 'application/json'}
              if aap_oauthtoken is defined
