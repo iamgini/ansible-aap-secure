@@ -17,7 +17,7 @@
   tasks:
     - name: Map AAP credential env vars to playbook vars
       ansible.builtin.set_fact:
-        aap_hostname: "{{ lookup('env', 'CONTROLLER_HOST') | default(aap_hostname | default(''), true) }}"
+        aap_hostname: "{{ (lookup('env', 'CONTROLLER_HOST') | default(aap_hostname | default(''), true)) | regex_replace('/$', '') }}"
         aap_username: "{{ lookup('env', 'CONTROLLER_USERNAME') | default(aap_username | default(omit, true), true) }}"
         aap_password: "{{ lookup('env', 'CONTROLLER_PASSWORD') | default(aap_password | default(omit, true), true) }}"
         aap_oauthtoken: "{{ lookup('env', 'CONTROLLER_OAUTH_TOKEN') | default(aap_oauthtoken | default(omit, true), true) }}"

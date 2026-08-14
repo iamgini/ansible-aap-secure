@@ -36,6 +36,10 @@
   failed_when: false
   no_log: true
 
+- name: Show API response status codes
+  ansible.builtin.debug:
+    msg: "Gateway API: {{ _gw_settings.status | default('no response') }} | Controller API: {{ _sys_settings.status | default('no response') }} | URL: {{ _gw_settings.url | default('unknown') }}"
+
 - name: Set API availability flag
   ansible.builtin.set_fact:
     _gw_api_available: "{{ _gw_settings.status | default(0) == 200 }}"
