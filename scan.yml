@@ -15,15 +15,11 @@
     - vars/customer_overrides.yml
     - vars/scan_policy.yml
   tasks:
-    - name: Map AAP credential env vars to playbook vars
-      vars:
-        _raw_host: "{{ lookup('env', 'CONTROLLER_HOST') | default(aap_hostname | default(''), true) | trim }}"
+    - name: Normalize credential vars
       ansible.builtin.set_fact:
-        aap_hostname: "{{ _raw_host[:-1] if _raw_host.endswith('/') else _raw_host }}"
-        aap_username: "{{ lookup('env', 'CONTROLLER_USERNAME') | default(aap_username | default(omit, true), true) }}"
-        aap_password: "{{ lookup('env', 'CONTROLLER_PASSWORD') | default(aap_password | default(omit, true), true) }}"
-        aap_oauthtoken: "{{ lookup('env', 'CONTROLLER_OAUTH_TOKEN') | default(aap_oauthtoken | default(omit, true), true) }}"
-        aap_validate_certs: "{{ lookup('env', 'CONTROLLER_VERIFY_SSL') | default(aap_validate_certs | default(true, true), true) }}"
+        aap_hostname: "{{ (aap_hostname | default(lookup('env', 'CONTROLLER_HOST'), true) | trim).rstrip('/') }}"
+        aap_oauthtoken: "{{ aap_token | default(aap_oauthtoken | default(lookup('env', 'CONTROLLER_OAUTH_TOKEN'), true), true) }}"
+        aap_validate_certs: "{{ aap_validate_certs | default(lookup('env', 'CONTROLLER_VERIFY_SSL') | default(true, true), true) }}"
       no_log: true
 
     - name: Show API target (verify credential mapping)
