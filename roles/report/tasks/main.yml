@@ -1,14 +1,7 @@
 ---
 - name: Collect results from API hosts
   ansible.builtin.set_fact:
-    _api_results: >-
-      {{
-        groups['aap_gateway'] | default([])
-        | map('extract', hostvars, 'aap_secure_api_results')
-        | select('defined')
-        | flatten
-        | list
-      }}
+    _api_results: "{{ hostvars['localhost']['aap_secure_api_results'] | default([]) }}"
 
 - name: Collect results from AAP hosts
   ansible.builtin.set_fact:

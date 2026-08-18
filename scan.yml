@@ -8,23 +8,23 @@
 
 # --- Play 1: API-level security checks (Gateway, Auth, RBAC, Credentials, Logging) ---
 - name: AAP Security - API Checks
-  hosts: aap_gateway
+  hosts: localhost
+  connection: local
   gather_facts: false
   vars_files:
     - vars/security_baseline.yml
     - vars/customer_overrides.yml
     - vars/scan_policy.yml
+  vars:
+    _aap_api_url: "{{ (aap_hostname | default(lookup('env', 'CONTROLLER_HOST'), true)) | regex_replace('/$', '') }}"
+    _aap_token: "{{ aap_token | default(aap_oauthtoken | default(lookup('env', 'CONTROLLER_OAUTH_TOKEN'), true), true) | default('', true) }}"
+    _aap_username: "{{ aap_username | default(lookup('env', 'CONTROLLER_USERNAME'), true) | default('', true) }}"
+    _aap_password: "{{ aap_password | default(lookup('env', 'CONTROLLER_PASSWORD'), true) | default('', true) }}"
+    _aap_validate_certs: "{{ aap_validate_certs | default(lookup('env', 'CONTROLLER_VERIFY_SSL') | default(true, true), true) }}"
   tasks:
-    - name: Normalize credential vars
-      ansible.builtin.set_fact:
-        aap_hostname: "{{ (aap_hostname | default(lookup('env', 'CONTROLLER_HOST'), true) | trim).rstrip('/') }}"
-        aap_oauthtoken: "{{ aap_token | default(aap_oauthtoken | default(lookup('env', 'CONTROLLER_OAUTH_TOKEN'), true), true) }}"
-        aap_validate_certs: "{{ aap_validate_certs | default(lookup('env', 'CONTROLLER_VERIFY_SSL') | default(true, true), true) }}"
-      no_log: true
-
-    - name: Show API target (verify credential mapping)
+    - name: Show API target
       ansible.builtin.debug:
-        msg: "Target: {{ aap_hostname }} | Auth: {{ 'OAuth token' if aap_oauthtoken is defined else ('Basic auth' if aap_username is defined else 'None') }}"
+        msg: "Target: {{ _aap_api_url }} | Auth: {{ 'token' if (_aap_token | length > 0) else ('basic' if (_aap_username | length > 0) else 'none') }}"
 
     - name: Initialize API results collector
       ansible.builtin.set_fact:

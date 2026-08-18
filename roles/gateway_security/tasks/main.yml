@@ -9,13 +9,13 @@
 
 - name: Query gateway settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/gateway/v1/settings/all/"
+    url: "{{ _aap_api_url }}/api/gateway/v1/settings/all/"
     method: GET
-    url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
-    url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
-    force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
-    headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
+    url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
+    force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
+    headers: "{{ {'Authorization': 'Bearer ' + _aap_token} if (_aap_token | length > 0) else {} }}"
+    validate_certs: "{{ _aap_validate_certs }}"
     status_code: [200]
   register: _gw_settings
   failed_when: false
@@ -23,13 +23,13 @@
 
 - name: Query controller system settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/controller/v2/settings/system/"
+    url: "{{ _aap_api_url }}/api/controller/v2/settings/system/"
     method: GET
-    url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
-    url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
-    force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
-    headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
+    url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
+    force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
+    headers: "{{ {'Authorization': 'Bearer ' + _aap_token} if (_aap_token | length > 0) else {} }}"
+    validate_certs: "{{ _aap_validate_certs }}"
     status_code: [200]
   register: _sys_settings
   failed_when: false
@@ -130,16 +130,16 @@
   block:
     - name: Apply gateway security settings
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/gateway/v1/settings/configuration/"
+        url: "{{ _aap_api_url }}/api/gateway/v1/settings/configuration/"
         method: PATCH
-        url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
-        url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
-        force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
+        url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
+        url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
+        force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
         headers: >-
-          {{ {'Authorization': 'Bearer ' + aap_oauthtoken, 'Content-Type': 'application/json'}
-             if aap_oauthtoken is defined
+          {{ {'Authorization': 'Bearer ' + _aap_token, 'Content-Type': 'application/json'}
+             if (_aap_token | length > 0)
              else {'Content-Type': 'application/json'} }}
-        validate_certs: "{{ aap_validate_certs | default(true) }}"
+        validate_certs: "{{ _aap_validate_certs }}"
         body_format: json
         body:
           SESSION_COOKIE_AGE: "{{ _gw.SESSION_COOKIE_AGE }}"

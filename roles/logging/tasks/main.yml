@@ -7,13 +7,13 @@
 
 - name: Query logging settings
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/controller/v2/settings/logging/"
+    url: "{{ _aap_api_url }}/api/controller/v2/settings/logging/"
     method: GET
-    url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
-    url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
-    force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
-    headers: "{{ {'Authorization': 'Bearer ' + aap_oauthtoken} if aap_oauthtoken is defined else {} }}"
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
+    url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
+    force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
+    headers: "{{ {'Authorization': 'Bearer ' + _aap_token} if (_aap_token | length > 0) else {} }}"
+    validate_certs: "{{ _aap_validate_certs }}"
     status_code: [200]
   register: _logging_settings
   failed_when: false
@@ -108,16 +108,16 @@
     - aap_secure_mode == 'remediate'
     - _log_api_available
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/controller/v2/settings/logging/"
+    url: "{{ _aap_api_url }}/api/controller/v2/settings/logging/"
     method: PATCH
-    url_username: "{{ omit if aap_oauthtoken is defined else (aap_username | default(omit)) }}"
-    url_password: "{{ omit if aap_oauthtoken is defined else (aap_password | default(omit)) }}"
-    force_basic_auth: "{{ aap_username is defined and aap_oauthtoken is not defined }}"
+    url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
+    url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
+    force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
     headers: >-
-      {{ {'Authorization': 'Bearer ' + aap_oauthtoken, 'Content-Type': 'application/json'}
-         if aap_oauthtoken is defined
+      {{ {'Authorization': 'Bearer ' + _aap_token, 'Content-Type': 'application/json'}
+         if (_aap_token | length > 0)
          else {'Content-Type': 'application/json'} }}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    validate_certs: "{{ _aap_validate_certs }}"
     body_format: json
     body:
       LOG_AGGREGATOR_ENABLED: true
