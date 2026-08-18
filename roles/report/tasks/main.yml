@@ -73,6 +73,13 @@
     dest: "{{ aap_secure_report_dir }}/{{ aap_secure_report_filename }}.json"
     mode: "0644"
 
+- name: Display detailed results
+  ansible.builtin.debug:
+    msg: "{{ item.status | upper }} | {{ item.domain }} | {{ item.name }} | Current: {{ item.current_value }} | Recommended: {{ item.recommended_value }}"
+  loop: "{{ aap_secure_all_results }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: Display compliance summary
   ansible.builtin.debug:
     msg: |
