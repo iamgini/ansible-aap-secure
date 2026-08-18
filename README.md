@@ -9,22 +9,22 @@ Scan-and-remediate toolkit for AAP 2.7 security hardening based on the Red Hat A
 ansible-galaxy collection install -r requirements.yml
 
 # Run security scan (read-only)
-ansible-playbook scan.yml -i inventory/sample_inventory.yml
+ansible-playbook aap_secure.yml -i inventory/sample_inventory.yml
 
 # Run with custom inventory
-ansible-playbook scan.yml -i /path/to/customer/inventory.yml
+ansible-playbook aap_secure.yml -i /path/to/customer/inventory.yml
 
 # Remediate (apply fixes)
-ansible-playbook scan.yml -e aap_secure_mode=remediate
+ansible-playbook aap_secure.yml -e aap_secure_mode=remediate
 
 # Scan API-level only
-ansible-playbook scan.yml -e aap_secure_scope=api
+ansible-playbook aap_secure.yml -e aap_secure_scope=api
 
 # Scan hosts only
-ansible-playbook scan.yml -e aap_secure_scope=hosts
+ansible-playbook aap_secure.yml -e aap_secure_scope=hosts
 
 # With ansible-navigator
-ansible-navigator run scan.yml -i inventory/sample_inventory.yml -m stdout
+ansible-navigator run aap_secure.yml -i inventory/sample_inventory.yml -m stdout
 ```
 
 ## How to Use
@@ -36,7 +36,7 @@ ansible-navigator run scan.yml -i inventory/sample_inventory.yml -m stdout
    - **Red Hat Ansible Automation Platform** credential (built-in type) - for API checks. This injects `aap_hostname`, `aap_username`, `aap_password`, and `aap_validate_certs` as extra vars automatically
    - **Machine** credential - for host-level and managed node checks (SSH access with become)
 3. **Create a Job Template**:
-   - Playbook: `scan.yml`
+   - Playbook: `aap_secure.yml`
    - Credentials: attach both credentials above
    - Extra Variables (optional):
      ```yaml
@@ -69,13 +69,13 @@ ansible-navigator run scan.yml -i inventory/sample_inventory.yml -m stdout
 3. **Run the scan**:
    ```bash
    # API checks only (no inventory needed)
-   ansible-playbook scan.yml -e aap_secure_scope=api
+   ansible-playbook aap_secure.yml -e aap_secure_scope=api
 
    # Full scan (requires inventory with aap_hosts and managed_nodes groups)
-   ansible-playbook scan.yml -i inventory/sample_inventory.yml
+   ansible-playbook aap_secure.yml -i inventory/sample_inventory.yml
 
    # Remediate mode (applies fixes - requires write access)
-   ansible-playbook scan.yml -e aap_secure_mode=remediate
+   ansible-playbook aap_secure.yml -e aap_secure_mode=remediate
    ```
 4. **View the report**:
    - **stdout** - per-check results and CSV output
@@ -179,7 +179,7 @@ Reports are generated in `reports/` directory (gitignored). Each report shows:
 
 ```
 ansible-aap-secure/
-├── scan.yml                        # Main playbook (scan + remediate)
+├── aap_secure.yml                        # Main playbook (scan + remediate)
 ├── ansible.cfg
 ├── ansible-navigator.yml
 ├── requirements.yml

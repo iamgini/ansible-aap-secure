@@ -1,15 +1,15 @@
 # AAP Secure 2.7 - Automation Feasibility Matrix
 
-Comprehensive mapping of every security recommendation from the Red Hat AAP Secure 2.7 guide to its automation feasibility and implementation status in `scan.yml`.
+Comprehensive mapping of every security recommendation from the Red Hat AAP Secure 2.7 guide to its automation feasibility and implementation status in `aap_secure.yml`.
 
 **Source**: Red Hat AAP Secure 2.7 (July 2026)
 
 **Legend**:
 - **Type**: Setting = runtime config value, Config = file/system config, Best Practice = guidance/process, Architecture = design decision
-- **Scan**: Yes = `scan.yml` can check this in scan mode, No = requires manual review
-- **Remediate**: Yes = `scan.yml` can fix this in remediate mode, NA = not automatable or best practice
+- **Scan**: Yes = `aap_secure.yml` can check this in scan mode, No = requires manual review
+- **Remediate**: Yes = `aap_secure.yml` can fix this in remediate mode, NA = not automatable or best practice
 - **Method**: API = AAP REST API, SSH = remote host command, Installer = installer variable, Manual = human decision required, NA = not applicable
-- **Status**: Done = implemented in scan.yml, Planned = will implement, Not Planned = out of scope for scan.yml
+- **Status**: Done = implemented in aap_secure.yml, Planned = will implement, Not Planned = out of scope for aap_secure.yml
 
 ---
 
@@ -27,7 +27,7 @@ Comprehensive mapping of every security recommendation from the Red Hat AAP Secu
 | 8 | Gateway | Configure gateway route timeouts (request_timeout_seconds) | 95-96 | Setting | Yes | Yes | API | Planned | /api/gateway/v1/routes/ |
 | 9 | Gateway | Configure gateway route timeouts (idle_timeout_seconds) | 95-96 | Setting | Yes | Yes | API | Planned | Prevent hung connections |
 | 10 | Gateway | Verify Envoy timeout > gRPC timeout > authenticator timeout | 96 | Config | Yes | NA | API | Planned | Scan layered timeouts for consistency |
-| 11 | Gateway | Use gateway_extra_settings for custom config (containerized) | 200 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
+| 11 | Gateway | Use gateway_extra_settings for custom config (containerized) | 200 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
 | 12 | Gateway | Use /etc/ansible-automation-platform/gateway/settings.py (RPM) | 200 | Config | Yes | Yes | SSH | Not Planned | Direct file edit; handled during install |
 
 ## 2. Authentication - General
@@ -187,7 +187,7 @@ Comprehensive mapping of every security recommendation from the Red Hat AAP Secu
 |---|--------|---------------|------------|------|------|-----------|--------|--------|-------|
 | 99 | Controller | Set DEFAULT_JOB_TIMEOUT > 0 | 208 | Setting | Yes | Yes | API | Planned | Prevent runaway jobs; 0 = no timeout |
 | 100 | Controller | Verify AWX_TASK_ENV has GIT_SSL_NO_VERIFY=False | 208 | Setting | Yes | Yes | API | Planned | Never disable Git SSL verification |
-| 101 | Controller | Use controller_extra_settings for custom config | 200 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
+| 101 | Controller | Use controller_extra_settings for custom config | 200 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
 | 102 | Controller | Use /etc/tower/conf.d/custom.py for custom settings (RPM) | 200 | Config | Yes | Yes | SSH | Not Planned | Direct file edit; handled during install |
 
 ## 16. Host Hardening - fapolicyd
@@ -234,8 +234,8 @@ Comprehensive mapping of every security recommendation from the Red Hat AAP Secu
 
 | # | Domain | Recommendation | Guide Page | Type | Scan | Remediate | Method | Status | Notes |
 |---|--------|---------------|------------|------|------|-----------|--------|--------|-------|
-| 118 | TLS | Set *_nginx_disable_https=false | 225-226 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 119 | TLS | Set *_nginx_disable_hsts=false | 226 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
+| 118 | TLS | Set *_nginx_disable_https=false | 225-226 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 119 | TLS | Set *_nginx_disable_hsts=false | 226 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
 | 120 | TLS | Verify NGINX serves HTTPS on port 443 | 225 | Config | Yes | NA | SSH | Planned | Check nginx config and listening ports |
 | 121 | TLS | Verify HSTS header present in responses | 226 | Config | Yes | NA | SSH | Planned | curl -I and check Strict-Transport-Security |
 
@@ -243,8 +243,8 @@ Comprehensive mapping of every security recommendation from the Red Hat AAP Secu
 
 | # | Domain | Recommendation | Guide Page | Type | Scan | Remediate | Method | Status | Notes |
 |---|--------|---------------|------------|------|------|-----------|--------|--------|-------|
-| 122 | PgTLS | Set postgresql_disable_tls=false | 227 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 123 | PgTLS | Set *_pg_sslmode=verify-full | 227 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
+| 122 | PgTLS | Set postgresql_disable_tls=false | 227 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 123 | PgTLS | Set *_pg_sslmode=verify-full | 227 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
 | 124 | PgTLS | Deploy PostgreSQL CA certificate | 227-228 | Config | Yes | Yes | SSH | Planned | Required for verify-full mode |
 | 125 | PgTLS | Verify PostgreSQL server certificate validity | 228 | Config | Yes | NA | SSH | Planned | Check cert expiry and chain |
 
@@ -252,18 +252,18 @@ Comprehensive mapping of every security recommendation from the Red Hat AAP Secu
 
 | # | Domain | Recommendation | Guide Page | Type | Scan | Remediate | Method | Status | Notes |
 |---|--------|---------------|------------|------|------|-----------|--------|--------|-------|
-| 126 | PKI | Deploy custom CA certificates | 228-229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 127 | PKI | Use custom TLS certs for gateway | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 128 | PKI | Use custom TLS certs for controller | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 129 | PKI | Use custom TLS certs for hub | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 130 | PKI | Use custom TLS certs for EDA | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 131 | PKI | Use custom TLS certs for PostgreSQL | 230 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 132 | PKI | Use custom TLS certs for receptor | 230 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 133 | PKI | Use custom TLS certs for Redis | 230 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
+| 126 | PKI | Deploy custom CA certificates | 228-229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 127 | PKI | Use custom TLS certs for gateway | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 128 | PKI | Use custom TLS certs for controller | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 129 | PKI | Use custom TLS certs for hub | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 130 | PKI | Use custom TLS certs for EDA | 229 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 131 | PKI | Use custom TLS certs for PostgreSQL | 230 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 132 | PKI | Use custom TLS certs for receptor | 230 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 133 | PKI | Use custom TLS certs for Redis | 230 | Config | Yes | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
 | 134 | PKI | Monitor certificate expiry dates | 230 | Config | Yes | NA | SSH | Planned | openssl x509 -enddate on each cert |
 | 135 | PKI | Verify complete CA chain | 230-231 | Config | Yes | NA | SSH | Planned | openssl verify -CAfile |
-| 136 | PKI | Renew certs via installer (aap_service_regen_cert=true) | 231 | Config | No | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
-| 137 | PKI | Regenerate CA (aap_ca_regenerate=true) | 231 | Config | No | Yes | Installer | Not Planned | Installer variable; outside scan.yml scope |
+| 136 | PKI | Renew certs via installer (aap_service_regen_cert=true) | 231 | Config | No | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
+| 137 | PKI | Regenerate CA (aap_ca_regenerate=true) | 231 | Config | No | Yes | Installer | Not Planned | Installer variable; outside aap_secure.yml scope |
 
 ## 24. Managed Nodes - Service Account
 
@@ -313,7 +313,7 @@ Comprehensive mapping of every security recommendation from the Red Hat AAP Secu
 | 154 | Install | Encrypt installer inventory with Ansible Vault | 203 | Best Practice | No | NA | NA | Not Planned | Protect passwords in inventory |
 | 155 | Install | Use ansible-vault encrypt_string for individual vars | 203-204 | Best Practice | No | NA | NA | Not Planned | Fine-grained secret encryption |
 | 156 | Install | Secure installer artifacts after installation | 204 | Best Practice | No | NA | NA | Not Planned | Remove or restrict access to installer directory |
-| 157 | Install | Review installer inventory for exposed secrets | 203 | Best Practice | Yes | NA | SSH | Not Planned | Pre-install activity; outside scan.yml scope |
+| 157 | Install | Review installer inventory for exposed secrets | 203 | Best Practice | Yes | NA | SSH | Not Planned | Pre-install activity; outside aap_secure.yml scope |
 
 ## 30. Hardening Posture - Topology
 
@@ -421,9 +421,9 @@ Comprehensive mapping of every security recommendation from the Red Hat AAP Secu
 
 ## Notes
 
-- **Scan** and **Remediate** columns indicate whether `scan.yml` can perform the check or fix, not just theoretical possibility.
-- **Status: Planned** means the item will be implemented in `scan.yml` roles. Update to **Done** as roles are built.
-- **Status: Not Planned** items fall outside `scan.yml` scope - installer variables, architecture decisions, OCP-specific, reference architectures, or customer-specific workload choices.
+- **Scan** and **Remediate** columns indicate whether `aap_secure.yml` can perform the check or fix, not just theoretical possibility.
+- **Status: Planned** means the item will be implemented in `aap_secure.yml` roles. Update to **Done** as roles are built.
+- **Status: Not Planned** items fall outside `aap_secure.yml` scope - installer variables, architecture decisions, OCP-specific, reference architectures, or customer-specific workload choices.
 - **Installer items** require modifying the AAP installer inventory and re-running the installer - outside the scope of a post-install scan/remediate playbook.
 - **Credential type items** (#74-86) are not planned because which credential types are used depends on the customer's automation workloads.
 - **RBAC items** are scan-only (report current state) because the correct assignments depend on organizational structure.

@@ -1,10 +1,10 @@
 ---
 # AAP Secure 2.7 - Security Scan & Remediation
 # Usage:
-#   Scan:      ansible-playbook scan.yml
-#   Remediate: ansible-playbook scan.yml -e aap_secure_mode=remediate
-#   API only:  ansible-playbook scan.yml -e aap_secure_scope=api
-#   Hosts only: ansible-playbook scan.yml -e aap_secure_scope=hosts
+#   Scan:      ansible-playbook aap_secure.yml
+#   Remediate: ansible-playbook aap_secure.yml -e aap_secure_mode=remediate
+#   API only:  ansible-playbook aap_secure.yml -e aap_secure_scope=api
+#   Hosts only: ansible-playbook aap_secure.yml -e aap_secure_scope=hosts
 
 # --- Play 1: API-level security checks (Gateway, Auth, RBAC, Credentials, Logging) ---
 - name: AAP Security - API Checks

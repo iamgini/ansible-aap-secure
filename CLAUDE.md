@@ -20,7 +20,7 @@ ansible-aap-secure/
 ├── ansible.cfg
 ├── ansible-navigator.yml
 ├── requirements.yml
-├── scan.yml                        # Main playbook (scan + remediate, controlled by variables)
+├── aap_secure.yml                        # Main playbook (scan + remediate, controlled by variables)
 ├── roles/
 │   ├── gateway_security/           # Gateway settings: session, CSRF, proxy, OAuth2
 │   ├── authentication/             # Authenticators: LDAP, SAML, OIDC, Keycloak config checks
@@ -64,7 +64,7 @@ aap_secure_check_managed_nodes: true
 
 ## Playbook Design
 
-Single `scan.yml` with multiple plays:
+Single `aap_secure.yml` with multiple plays:
 
 1. **Play 1** — targets `aap_gateway` (API checks): gateway settings, authentication, RBAC, credentials, logging
 2. **Play 2** — targets `aap_hosts` (SSH checks): fapolicyd, namespaces, noexec, log permissions, TLS
