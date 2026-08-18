@@ -80,6 +80,16 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Publish report as job artifact
+  ansible.builtin.set_stats:
+    data:
+      aap_secure_report:
+        customer: "{{ aap_secure_customer_name }}"
+        mode: "{{ aap_secure_mode }}"
+        scope: "{{ aap_secure_scope }}"
+        summary: "{{ aap_secure_summary }}"
+        results: "{{ aap_secure_all_results }}"
+
 - name: Display compliance summary
   ansible.builtin.debug:
     msg: |
