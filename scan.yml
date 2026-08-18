@@ -16,11 +16,11 @@
     - vars/customer_overrides.yml
     - vars/scan_policy.yml
   vars:
-    _aap_api_url: "{{ (aap_hostname | default(lookup('env', 'CONTROLLER_HOST'), true)) | regex_replace('/$', '') }}"
-    _aap_token: "{{ aap_token | default(aap_oauthtoken | default(lookup('env', 'CONTROLLER_OAUTH_TOKEN'), true), true) | default('', true) }}"
-    _aap_username: "{{ aap_username | default(lookup('env', 'CONTROLLER_USERNAME'), true) | default('', true) }}"
-    _aap_password: "{{ aap_password | default(lookup('env', 'CONTROLLER_PASSWORD'), true) | default('', true) }}"
-    _aap_validate_certs: "{{ aap_validate_certs | default(lookup('env', 'CONTROLLER_VERIFY_SSL') | default(true, true), true) }}"
+    _aap_api_url: "{{ (aap_hostname | default('')) | regex_replace('/$', '') }}"
+    _aap_token: "{{ aap_token | default('') }}"
+    _aap_username: "{{ aap_username | default('') }}"
+    _aap_password: "{{ aap_password | default('') }}"
+    _aap_validate_certs: "{{ aap_validate_certs | default(true) }}"
   tasks:
     - name: Show API target
       ansible.builtin.debug:
