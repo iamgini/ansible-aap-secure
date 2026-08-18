@@ -27,6 +27,81 @@ ansible-playbook scan.yml -e aap_secure_scope=hosts
 ansible-navigator run scan.yml -i inventory/sample_inventory.yml -m stdout
 ```
 
+## How to Use
+
+### Option 1: Run from AAP (Recommended)
+
+1. **Add the project** - create a Project in AAP pointing to this Git repository
+2. **Add credentials**:
+   - **Red Hat Ansible Automation Platform** credential (built-in type) - for API checks. This injects `aap_hostname`, `aap_username`, `aap_password`, and `aap_validate_certs` as extra vars automatically
+   - **Machine** credential - for host-level and managed node checks (SSH access with become)
+3. **Create a Job Template**:
+   - Playbook: `scan.yml`
+   - Credentials: attach both credentials above
+   - Extra Variables (optional):
+     ```yaml
+     aap_secure_mode: scan          # scan or remediate
+     aap_secure_scope: api          # all, api, or hosts
+     aap_secure_customer_name: "Customer Name"
+     ```
+4. **Run the job** - launch the template
+5. **View the report**:
+   - **Job stdout** - detailed per-check results and CSV output (copy-paste to spreadsheet)
+   - **Artifacts tab** - structured JSON report under `aap_secure_report` key
+
+### Option 2: Run Locally with ansible-playbook
+
+1. **Set environment variables** for AAP API access:
+   ```bash
+   export AAP_HOSTNAME=https://aap-gateway.example.com/
+   export AAP_USERNAME=admin
+   export AAP_PASSWORD=yourpassword
+   export AAP_VALIDATE_CERTS=false
+   ```
+   Or source from a config file (keep outside the repo):
+   ```bash
+   source ~/.config/aapaio
+   ```
+2. **Install dependencies**:
+   ```bash
+   ansible-galaxy collection install -r requirements.yml
+   ```
+3. **Run the scan**:
+   ```bash
+   # API checks only (no inventory needed)
+   ansible-playbook scan.yml -e aap_secure_scope=api
+
+   # Full scan (requires inventory with aap_hosts and managed_nodes groups)
+   ansible-playbook scan.yml -i inventory/sample_inventory.yml
+
+   # Remediate mode (applies fixes - requires write access)
+   ansible-playbook scan.yml -e aap_secure_mode=remediate
+   ```
+4. **View the report**:
+   - **stdout** - per-check results and CSV output
+   - **reports/** directory - HTML and JSON files
+
+### Authentication
+
+The playbook supports two authentication methods for API checks:
+
+| Method | Variables | Priority |
+|---|---|---|
+| Token (Bearer) | `aap_token` or `AAP_TOKEN` env var | Checked first |
+| Basic auth | `aap_username`/`aap_password` or `AAP_USERNAME`/`AAP_PASSWORD` env vars | Fallback |
+
+When using the **Red Hat Ansible Automation Platform** credential type in AAP, `aap_username` and `aap_password` are injected automatically as extra vars - no additional configuration needed.
+
+### Report Formats
+
+| Format | Location | Best For |
+|---|---|---|
+| Detailed stdout | Job output / terminal | Quick review of each check |
+| CSV | Job output / terminal | Copy-paste to spreadsheet |
+| JSON artifact | AAP Artifacts tab | Programmatic processing |
+| HTML file | `reports/` directory | Sharing with stakeholders (local runs) |
+| JSON file | `reports/` directory | Archival (local runs) |
+
 ## Modes
 
 | Mode | Description |
