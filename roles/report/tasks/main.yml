@@ -108,6 +108,7 @@
         scope: "{{ aap_secure_scope }}"
         summary: "{{ aap_secure_summary }}"
         results: "{{ aap_secure_all_results }}"
+        results_csv: "{{ [_csv_header] + _csv_rows }}"
 
 - name: Display compliance summary
   ansible.builtin.debug:
