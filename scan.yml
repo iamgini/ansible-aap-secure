@@ -20,7 +20,7 @@
   tasks:
     - name: Show API target
       ansible.builtin.debug:
-        msg: "Target: {{ _aap_api_url }} | Auth: {{ 'token' if (aap_token | default('', true) | length > 0) else ('basic' if (aap_username | default('', true) | length > 0) else 'none') }}"
+        msg: "Target: {{ _aap_api_url }} | Auth: {{ 'token' if (aap_token | default(lookup('env', 'AAP_TOKEN'), true) | default('', true) | length > 0) else ('basic' if (aap_username | default(lookup('env', 'AAP_USERNAME'), true) | default('', true) | length > 0) else 'none') }}"
 
     - name: Initialize API results collector
       ansible.builtin.set_fact:
