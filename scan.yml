@@ -16,15 +16,11 @@
     - vars/customer_overrides.yml
     - vars/scan_policy.yml
   vars:
-    _aap_api_url: "{{ (aap_hostname | default('')) | regex_replace('/$', '') }}"
-    _aap_token: "{{ aap_token | default('') }}"
-    _aap_username: "{{ aap_username | default('') }}"
-    _aap_password: "{{ aap_password | default('') }}"
-    _aap_validate_certs: "{{ aap_validate_certs | default(true) }}"
+    _aap_api_url: "{{ (aap_hostname | default(lookup('env', 'AAP_HOSTNAME'), true)) | regex_replace('/$', '') }}"
   tasks:
     - name: Show API target
       ansible.builtin.debug:
-        msg: "Target: {{ _aap_api_url }} | Auth: {{ 'token' if (_aap_token | length > 0) else ('basic' if (_aap_username | length > 0) else 'none') }}"
+        msg: "Target: {{ _aap_api_url }} | Auth: {{ 'token' if (aap_token | default('', true) | length > 0) else ('basic' if (aap_username | default('', true) | length > 0) else 'none') }}"
 
     - name: Initialize API results collector
       ansible.builtin.set_fact:

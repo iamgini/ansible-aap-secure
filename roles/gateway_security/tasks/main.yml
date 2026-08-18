@@ -11,11 +11,11 @@
   ansible.builtin.uri:
     url: "{{ _aap_api_url }}/api/gateway/v1/settings/all/"
     method: GET
-    url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
-    url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
-    force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
-    headers: "{{ {'Authorization': 'Bearer ' + _aap_token} if (_aap_token | length > 0) else {} }}"
-    validate_certs: "{{ _aap_validate_certs }}"
+    url_username: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_username | default(omit)) }}"
+    url_password: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_password | default(omit)) }}"
+    force_basic_auth: "{{ (aap_token | default('', true) | length == 0) and (aap_username is defined) }}"
+    headers: "{{ {'Authorization': 'Bearer ' + aap_token} if (aap_token | default('', true) | length > 0) else {} }}"
+    validate_certs: "{{ aap_validate_certs | default(true) }}"
     status_code: [200]
   register: _gw_settings
   failed_when: false
@@ -25,11 +25,11 @@
   ansible.builtin.uri:
     url: "{{ _aap_api_url }}/api/controller/v2/settings/system/"
     method: GET
-    url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
-    url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
-    force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
-    headers: "{{ {'Authorization': 'Bearer ' + _aap_token} if (_aap_token | length > 0) else {} }}"
-    validate_certs: "{{ _aap_validate_certs }}"
+    url_username: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_username | default(omit)) }}"
+    url_password: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_password | default(omit)) }}"
+    force_basic_auth: "{{ (aap_token | default('', true) | length == 0) and (aap_username is defined) }}"
+    headers: "{{ {'Authorization': 'Bearer ' + aap_token} if (aap_token | default('', true) | length > 0) else {} }}"
+    validate_certs: "{{ aap_validate_certs | default(true) }}"
     status_code: [200]
   register: _sys_settings
   failed_when: false
@@ -43,7 +43,7 @@
       Controller API: {{ _sys_settings.status | default('no response') }}
       ({{ _sys_settings.msg | default('no message') }}) |
       URL: {{ _gw_settings.url | default('unknown') }} |
-      validate_certs: {{ aap_validate_certs }}
+      validate_certs: {{ aap_validate_certs | default(true) }}
 
 - name: Set API availability flag
   ansible.builtin.set_fact:
@@ -132,14 +132,14 @@
       ansible.builtin.uri:
         url: "{{ _aap_api_url }}/api/gateway/v1/settings/configuration/"
         method: PATCH
-        url_username: "{{ omit if (_aap_token | length > 0) else (_aap_username | default(omit, true)) }}"
-        url_password: "{{ omit if (_aap_token | length > 0) else (_aap_password | default(omit, true)) }}"
-        force_basic_auth: "{{ _aap_token | length == 0 and _aap_username | length > 0 }}"
+        url_username: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_username | default(omit)) }}"
+        url_password: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_password | default(omit)) }}"
+        force_basic_auth: "{{ (aap_token | default('', true) | length == 0) and (aap_username is defined) }}"
         headers: >-
-          {{ {'Authorization': 'Bearer ' + _aap_token, 'Content-Type': 'application/json'}
-             if (_aap_token | length > 0)
+          {{ {'Authorization': 'Bearer ' + aap_token, 'Content-Type': 'application/json'}
+             if (aap_token | default('', true) | length > 0)
              else {'Content-Type': 'application/json'} }}
-        validate_certs: "{{ _aap_validate_certs }}"
+        validate_certs: "{{ aap_validate_certs | default(true) }}"
         body_format: json
         body:
           SESSION_COOKIE_AGE: "{{ _gw.SESSION_COOKIE_AGE }}"
