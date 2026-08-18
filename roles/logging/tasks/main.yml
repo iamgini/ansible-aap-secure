@@ -9,11 +9,11 @@
   ansible.builtin.uri:
     url: "{{ _aap_api_url }}/api/controller/v2/settings/logging/"
     method: GET
-    url_username: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_username | default(omit)) }}"
-    url_password: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_password | default(omit)) }}"
-    force_basic_auth: "{{ (aap_token | default('', true) | length == 0) and (aap_username is defined) }}"
-    headers: "{{ {'Authorization': 'Bearer ' + aap_token} if (aap_token | default('', true) | length > 0) else {} }}"
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    url_username: "{{ omit if (aap_token | default(lookup('env', 'AAP_TOKEN'), true) | default('', true) | length > 0) else (aap_username | default(lookup('env', 'AAP_USERNAME'), true) | default(omit, true)) }}"
+    url_password: "{{ omit if (aap_token | default(lookup('env', 'AAP_TOKEN'), true) | default('', true) | length > 0) else (aap_password | default(lookup('env', 'AAP_PASSWORD'), true) | default(omit, true)) }}"
+    force_basic_auth: "{{ (aap_token | default(lookup('env', 'AAP_TOKEN'), true) | default('', true) | length == 0) and (aap_username | default(lookup('env', 'AAP_USERNAME'), true) | default('', true) | length > 0) }}"
+    headers: "{{ {'Authorization': 'Bearer ' + (aap_token | default(lookup('env', 'AAP_TOKEN'), true))} if (aap_token | default(lookup('env', 'AAP_TOKEN'), true) | default('', true) | length > 0) else {} }}"
+    validate_certs: "{{ aap_validate_certs | default(lookup('env', 'AAP_VALIDATE_CERTS') | default(true, true), true) }}"
     status_code: [200]
   register: _logging_settings
   failed_when: false
@@ -114,10 +114,10 @@
     url_password: "{{ omit if (aap_token | default('', true) | length > 0) else (aap_password | default(omit)) }}"
     force_basic_auth: "{{ (aap_token | default('', true) | length == 0) and (aap_username is defined) }}"
     headers: >-
-      {{ {'Authorization': 'Bearer ' + aap_token, 'Content-Type': 'application/json'}
-         if (aap_token | default('', true) | length > 0)
+      {{ {'Authorization': 'Bearer ' + (aap_token | default(lookup('env', 'AAP_TOKEN'), true)), 'Content-Type': 'application/json'}
+         if (aap_token | default(lookup('env', 'AAP_TOKEN'), true) | default('', true) | length > 0)
          else {'Content-Type': 'application/json'} }}
-    validate_certs: "{{ aap_validate_certs | default(true) }}"
+    validate_certs: "{{ aap_validate_certs | default(lookup('env', 'AAP_VALIDATE_CERTS') | default(true, true), true) }}"
     body_format: json
     body:
       LOG_AGGREGATOR_ENABLED: true
