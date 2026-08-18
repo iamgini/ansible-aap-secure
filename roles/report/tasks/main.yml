@@ -80,6 +80,21 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Build CSV report
+  ansible.builtin.set_fact:
+    _csv_header: "Status,Domain,Check,Current Value,Recommended Value,Remediation,Reference"
+    _csv_rows: >-
+      {{ aap_secure_all_results | map(attribute='status') | zip(
+         aap_secure_all_results | map(attribute='domain'),
+         aap_secure_all_results | map(attribute='name'),
+         aap_secure_all_results | map(attribute='current_value'),
+         aap_secure_all_results | map(attribute='recommended_value'),
+         aap_secure_all_results | map(attribute='remediation'),
+         aap_secure_all_results | map(attribute='reference'))
+         | map('join', '","')
+         | map('regex_replace', '^(.*)$', '"\1"')
+         | list }}
+
 - name: Publish report as job artifact
   ansible.builtin.set_stats:
     data:
@@ -89,6 +104,7 @@
         scope: "{{ aap_secure_scope }}"
         summary: "{{ aap_secure_summary }}"
         results: "{{ aap_secure_all_results }}"
+        results_csv: "{{ _csv_header + '\n' + _csv_rows | join('\n') }}"
 
 - name: Display compliance summary
   ansible.builtin.debug:
